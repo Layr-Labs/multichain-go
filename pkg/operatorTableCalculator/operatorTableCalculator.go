@@ -1,4 +1,4 @@
-package stakeTableCalculator
+package operatorTableCalculator
 
 import (
 	"context"
@@ -86,14 +86,14 @@ func (c *StakeTableCalculator) CalculateStakeTableRoot(ctx context.Context, refe
 			return zeroRoot, fmt.Errorf("failed to get opset calculator caller for opset %d: %w", opset, err)
 		}
 
-		tableRoot, err := calc.CalculateOperatorTableBytes(&bind.CallOpts{
+		tableBytes, err := calc.CalculateOperatorTableBytes(&bind.CallOpts{
 			Context:     ctx,
 			BlockNumber: new(big.Int).SetUint64(referenceBlockNumber),
 		}, IOperatorTableCalculator.OperatorSet(opset))
 		if err != nil {
 			return zeroRoot, fmt.Errorf("failed to calculate operator table bytes for opset %d: %w", opset, err)
 		}
-		opsetTableRoots[i] = tableRoot
+		opsetTableRoots[i] = tableBytes
 	}
 
 	merkleTree, err := merkletree.NewTree(
