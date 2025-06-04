@@ -1,0 +1,49 @@
+name: lint, test, build
+
+on:
+  push:
+    branches:
+      - "*"
+    tags:
+      - 'v*'
+jobs:
+  gofmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23'
+      - name: Check formatting
+        run: |
+          if [ -n "$(gofmt -l .)" ]; then
+            echo "The following files are not formatted properly:"
+            gofmt -d .
+            exit 1
+          fi
+          echo "All files are formatted correctly."
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run linter
+        run: |
+          make deps
+          export PATH=$PATH:$(go env GOPATH)/bin
+          make lint
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run tests
+        run: |          
+          echo "building dependencies"
+          make deps
+          export PATH=$PATH:$(go env GOPATH)/bin
+      
+          echo "Running tests"
+          make test
