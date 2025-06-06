@@ -3,7 +3,7 @@ module github.com/Layr-Labs/multichain-go
 go 1.23.6
 
 require (
-	github.com/Layr-Labs/eigenlayer-contracts v1.5.0-rc.0.0.20250604014442-85b9a31ff433
+	github.com/Layr-Labs/eigenlayer-contracts v1.5.0-rc.0.0.20250605030806-b9989ab72277
 	github.com/ethereum/go-ethereum v1.15.11
 	github.com/wealdtech/go-merkletree/v2 v2.6.1
 	go.uber.org/zap v1.27.0
