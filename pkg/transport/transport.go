@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"github.com/Layr-Labs/crypto-libs/pkg/bn254"
 	"github.com/Layr-Labs/eigenlayer-contracts/pkg/bindings/IOperatorTableUpdater"
-	"github.com/Layr-Labs/hourglass-monorepo/contracts/pkg/bindings/ITaskMailbox"
 	"github.com/Layr-Labs/multichain-go/pkg/distribution"
 	"github.com/Layr-Labs/multichain-go/pkg/operatorTableCalculator"
+	"github.com/Layr-Labs/multichain-go/pkg/signer"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -26,9 +26,15 @@ type Transport struct {
 	logger                          *zap.Logger
 	stakeTableCalc                  *operatorTableCalculator.StakeTableCalculator
 	operatorTableUpdaterTransaction *IOperatorTableUpdater.IOperatorTableUpdaterTransactor
+	signer                          signer.ISigner
 }
 
-func NewTransport(cfg *TransportConfig, client *ethclient.Client, logger *zap.Logger) (*Transport, error) {
+func NewTransport(
+	cfg *TransportConfig,
+	client *ethclient.Client,
+	sig signer.ISigner,
+	logger *zap.Logger,
+) (*Transport, error) {
 	opTableUpdaterTransactor, err := IOperatorTableUpdater.NewIOperatorTableUpdaterTransactor(cfg.OperatorTableUpdaterAddress, client)
 	if err != nil {
 		return nil, err
@@ -37,6 +43,7 @@ func NewTransport(cfg *TransportConfig, client *ethclient.Client, logger *zap.Lo
 	return &Transport{
 		logger:                          logger,
 		config:                          cfg,
+		signer:                          sig,
 		operatorTableUpdaterTransaction: opTableUpdaterTransactor,
 	}, nil
 }
@@ -56,8 +63,8 @@ func (t *Transport) GenerateSignAndTransportGlobalTableRoot(referenceTimestamp u
 	return t.SignAndTransportGlobalTableRoot(root, referenceTimestamp, referenceBlockHeight)
 }
 
-func (t *Transport) getApkFromPrivateKey(privateKey *bn254.PrivateKey) (*IOperatorTableUpdater.BN254G2Point, error) {
-	g2Point := bn254.NewZeroG2Point().AddPublicKey(privateKey.Public())
+func (t *Transport) getApkFromPrivateKey() (*IOperatorTableUpdater.BN254G2Point, error) {
+	g2Point := bn254.NewZeroG2Point().AddPublicKey(t.signer.GetPublicKey())
 
 	g2Bytes, err := g2Point.ToPrecompileFormat()
 	if err != nil {
@@ -76,9 +83,9 @@ func (t *Transport) getApkFromPrivateKey(privateKey *bn254.PrivateKey) (*IOperat
 	}, nil
 }
 
-func (t *Transport) generateMessageHashSignature(root [32]byte, privateKey *bn254.PrivateKey) (*IOperatorTableUpdater.BN254G1Point, error) {
+func (t *Transport) generateMessageHashSignature(root [32]byte) (*IOperatorTableUpdater.BN254G1Point, error) {
 	// Sign the message hash using the private key
-	signature, err := privateKey.Sign(root[:])
+	signature, err := t.signer.SignBytes(root[:])
 	if err != nil {
 		t.logger.Error("Failed to sign message hash", zap.Error(err))
 		return nil, fmt.Errorf("failed to sign message hash: %w", err)
@@ -103,7 +110,7 @@ func (t *Transport) SignAndTransportGlobalTableRoot(root [32]byte, referenceTime
 		zap.Uint64("blockHeight", referenceBlockHeight),
 	)
 
-	sigG1, err := t.generateMessageHashSignature(root, t.stakeTableCalc.PrivateKey)
+	sigG1, err := t.generateMessageHashSignature(root)
 	if err != nil {
 		return nil, err
 	}
