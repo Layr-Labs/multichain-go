@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"github.com/Layr-Labs/crypto-libs/pkg/bn254"
 	"github.com/Layr-Labs/eigenlayer-contracts/pkg/bindings/IOperatorTableUpdater"
+	"github.com/Layr-Labs/multichain-go/pkg/blsSigner"
 	"github.com/Layr-Labs/multichain-go/pkg/distribution"
 	"github.com/Layr-Labs/multichain-go/pkg/operatorTableCalculator"
-	"github.com/Layr-Labs/multichain-go/pkg/signer"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -26,13 +26,13 @@ type Transport struct {
 	logger                          *zap.Logger
 	stakeTableCalc                  *operatorTableCalculator.StakeTableCalculator
 	operatorTableUpdaterTransaction *IOperatorTableUpdater.IOperatorTableUpdaterTransactor
-	signer                          signer.ISigner
+	signer                          blsSigner.IBLSSigner
 }
 
 func NewTransport(
 	cfg *TransportConfig,
 	client *ethclient.Client,
-	sig signer.ISigner,
+	sig blsSigner.IBLSSigner,
 	logger *zap.Logger,
 ) (*Transport, error) {
 	opTableUpdaterTransactor, err := IOperatorTableUpdater.NewIOperatorTableUpdaterTransactor(cfg.OperatorTableUpdaterAddress, client)

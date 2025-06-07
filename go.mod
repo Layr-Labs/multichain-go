@@ -3,14 +3,16 @@ module github.com/Layr-Labs/multichain-go
 go 1.23.6
 
 require (
+	github.com/Layr-Labs/crypto-libs v0.0.1
 	github.com/Layr-Labs/eigenlayer-contracts v1.5.0-rc.0.0.20250605030806-b9989ab72277
+	github.com/aws/aws-sdk-go v1.55.7
 	github.com/ethereum/go-ethereum v1.15.11
 	github.com/wealdtech/go-merkletree/v2 v2.6.1
 	go.uber.org/zap v1.27.0
 )
 
 require (
-	github.com/Layr-Labs/crypto-libs v0.0.1 // indirect
+	github.com/Layr-Labs/hourglass-monorepo/contracts v0.0.0-20250603132723-b0a53eef24e1 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/bits-and-blooms/bitset v1.20.0 // indirect
@@ -28,6 +30,7 @@ require (
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/holiman/uint256 v1.3.2 // indirect
 	github.com/iden3/go-iden3-crypto v0.0.16 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible // indirect
@@ -38,5 +41,6 @@ require (
 	golang.org/x/crypto v0.39.0 // indirect
 	golang.org/x/sync v0.15.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
+	golang.org/x/text v0.26.0 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
