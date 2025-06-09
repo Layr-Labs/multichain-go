@@ -57,15 +57,26 @@ func (c *StakeTableCalculator) getOpsetCalculatorCaller(opset ICrossChainRegistr
 }
 
 // CalculateStakeTableRoot performs the complete calculation for a given reference block.
-func (c *StakeTableCalculator) CalculateStakeTableRoot(ctx context.Context, referenceBlockNumber uint64) ([32]byte, *merkletree.MerkleTree, *distribution.Distribution, error) {
+func (c *StakeTableCalculator) CalculateStakeTableRoot(
+	ctx context.Context,
+	referenceBlockNumber uint64,
+) (
+	[32]byte,
+	*merkletree.MerkleTree,
+	*distribution.Distribution,
+	map[distribution.OperatorSet]common.Address,
+	error,
+) {
 	var zeroRoot [32]byte // Return in case of error or no data
+
+	opsetCalculatorAddresses := make(map[distribution.OperatorSet]common.Address)
 
 	opsetsWithCalculators, calculatorAddrs, err := c.crossChainRegistryCaller.GetActiveGenerationReservations(&bind.CallOpts{
 		Context:     ctx,
 		BlockNumber: new(big.Int).SetUint64(referenceBlockNumber),
 	})
 	if err != nil {
-		return zeroRoot, nil, nil, fmt.Errorf("failed to fetch active generation reservations: %w", err)
+		return zeroRoot, nil, nil, nil, fmt.Errorf("failed to fetch active generation reservations: %w", err)
 	}
 
 	c.logger.Sugar().Infow("Fetched active generation reservations",
@@ -75,7 +86,7 @@ func (c *StakeTableCalculator) CalculateStakeTableRoot(ctx context.Context, refe
 
 	if len(calculatorAddrs) == 0 {
 		c.logger.Sugar().Infow("No calculators registered for this block, cloud root will be zero.")
-		return zeroRoot, nil, nil, nil // TODO: Define a proper empty tree root
+		return zeroRoot, nil, nil, opsetCalculatorAddresses, nil // TODO: Define a proper empty tree root
 	}
 
 	dist := distribution.NewDistributionWithOperatorSets(util.Map(opsetsWithCalculators, func(opset ICrossChainRegistry.OperatorSet, i uint64) distribution.OperatorSet {
@@ -91,7 +102,7 @@ func (c *StakeTableCalculator) CalculateStakeTableRoot(ctx context.Context, refe
 
 		calc, err := c.getOpsetCalculatorCaller(opset, calcAddr)
 		if err != nil {
-			return zeroRoot, nil, nil, fmt.Errorf("failed to get opset calculator caller for opset %d: %w", opset, err)
+			return zeroRoot, nil, nil, nil, fmt.Errorf("failed to get opset calculator caller for opset %d: %w", opset, err)
 		}
 
 		tableBytes, err := calc.CalculateOperatorTableBytes(&bind.CallOpts{
@@ -99,15 +110,18 @@ func (c *StakeTableCalculator) CalculateStakeTableRoot(ctx context.Context, refe
 			BlockNumber: new(big.Int).SetUint64(referenceBlockNumber),
 		}, IOperatorTableCalculator.OperatorSet(opset))
 		if err != nil {
-			return zeroRoot, nil, nil, fmt.Errorf("failed to calculate operator table bytes for opset %d: %w", opset, err)
+			return zeroRoot, nil, nil, nil, fmt.Errorf("failed to calculate operator table bytes for opset %d: %w", opset, err)
 		}
 		opsetTableRoots[i] = tableBytes
-		err = dist.SetTableData(distribution.OperatorSet{
+		distOpset := distribution.OperatorSet{
 			Id:  opset.Id,
 			Avs: common.HexToAddress(opset.Avs.Hex()),
-		}, tableBytes)
+		}
+
+		err = dist.SetTableData(distOpset, tableBytes)
+		opsetCalculatorAddresses[distOpset] = calcAddr
 		if err != nil {
-			return zeroRoot, nil, nil, fmt.Errorf("failed to set table data for opset %d: %w", opset, err)
+			return zeroRoot, nil, nil, nil, fmt.Errorf("failed to set table data for opset %d: %w", opset, err)
 		}
 	}
 
@@ -116,7 +130,7 @@ func (c *StakeTableCalculator) CalculateStakeTableRoot(ctx context.Context, refe
 		merkletree.WithHashType(keccak256.New()),
 	)
 	if err != nil {
-		return zeroRoot, nil, nil, fmt.Errorf("calculator: failed to create merkle tree: %w", err)
+		return zeroRoot, nil, nil, nil, fmt.Errorf("calculator: failed to create merkle tree: %w", err)
 	}
 
 	merkleRoot := tree.Root()
@@ -125,5 +139,5 @@ func (c *StakeTableCalculator) CalculateStakeTableRoot(ctx context.Context, refe
 		zap.ByteString("root", merkleRoot[:]),
 		zap.Uint64("referenceBlockNumber", referenceBlockNumber),
 	)
-	return [32]byte(merkleRoot), tree, dist, nil
+	return [32]byte(merkleRoot), tree, dist, opsetCalculatorAddresses, nil
 }
