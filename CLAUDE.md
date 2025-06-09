@@ -9,6 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 make deps         # Install Go dependencies and update git submodules
 make deps/go      # Only install Go dependencies (go mod tidy)
 make bindings     # Generate Go bindings from smart contracts
+make build        # Build CLI tool to ./bin/transporter
 ```
 
 ### Testing and Code Quality

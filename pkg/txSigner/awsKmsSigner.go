@@ -29,7 +29,17 @@ type KMSTransactor struct {
 	chainID   uint32
 }
 
-// NewAWSKMSSigner creates a new AWSKMSSigner with the specified KMS key ID and AWS region
+// NewAWSKMSSigner creates a new AWSKMSSigner with the specified KMS key ID and AWS region.
+// This constructor establishes a connection to AWS KMS and derives the Ethereum address
+// from the public key associated with the specified KMS key.
+//
+// Parameters:
+//   - keyID: The AWS KMS key ID or ARN for signing operations
+//   - region: The AWS region where the KMS key is located
+//
+// Returns:
+//   - *AWSKMSSigner: A new AWS KMS signer instance
+//   - error: An error if the AWS session cannot be created or the key is invalid
 func NewAWSKMSSigner(keyID, region string) (*AWSKMSSigner, error) {
 	// Create AWS session
 	sess, err := session.NewSession(&aws.Config{
@@ -55,14 +65,24 @@ func NewAWSKMSSigner(keyID, region string) (*AWSKMSSigner, error) {
 	}, nil
 }
 
-// GetTransactOpts returns bind.TransactOpts configured for AWS KMS signing
-func (a *AWSKMSSigner) GetTransactOpts(ctx context.Context, chainID uint32) (*bind.TransactOpts, error) {
+// GetTransactOpts returns bind.TransactOpts configured for AWS KMS signing.
+// This method implements the ITransactionSigner interface by creating transaction
+// options that use AWS KMS for signing operations.
+//
+// Parameters:
+//   - ctx: Context for the transaction operation
+//   - chainID: The chain ID for the target blockchain
+//
+// Returns:
+//   - *bind.TransactOpts: Configured transaction options for AWS KMS signing
+//   - error: An error if the transaction options cannot be created
+func (a *AWSKMSSigner) GetTransactOpts(ctx context.Context, chainID *big.Int) (*bind.TransactOpts, error) {
 	// Create KMS transactor
 	kmsTransactor := &KMSTransactor{
 		kmsClient: a.kmsClient,
 		keyID:     a.keyID,
 		address:   a.address,
-		chainID:   chainID,
+		chainID:   uint32(chainID.Uint64()),
 	}
 
 	// Create transact opts with custom signer
@@ -75,7 +95,12 @@ func (a *AWSKMSSigner) GetTransactOpts(ctx context.Context, chainID uint32) (*bi
 	return auth, nil
 }
 
-// GetAddress returns the address associated with this KMS key
+// GetAddress returns the Ethereum address associated with this KMS key.
+// This method implements the ITransactionSigner interface.
+//
+// Returns:
+//   - common.Address: The Ethereum address derived from the KMS key
+//   - error: Always returns nil for AWS KMS signers
 func (a *AWSKMSSigner) GetAddress() (common.Address, error) {
 	return a.address, nil
 }

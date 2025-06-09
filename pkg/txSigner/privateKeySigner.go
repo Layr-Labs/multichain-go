@@ -18,7 +18,15 @@ type PrivateKeySigner struct {
 	address    common.Address
 }
 
-// NewPrivateKeySigner creates a new PrivateKeySigner from a hex-encoded private key
+// NewPrivateKeySigner creates a new PrivateKeySigner from a hex-encoded private key.
+// The private key can be provided with or without the "0x" prefix.
+//
+// Parameters:
+//   - privateKeyHex: A hex-encoded private key string (with or without 0x prefix)
+//
+// Returns:
+//   - *PrivateKeySigner: A new private key signer instance
+//   - error: An error if the private key cannot be parsed
 func NewPrivateKeySigner(privateKeyHex string) (*PrivateKeySigner, error) {
 	// Remove 0x prefix if present
 	privateKeyHex = strings.TrimPrefix(privateKeyHex, "0x")
@@ -37,10 +45,19 @@ func NewPrivateKeySigner(privateKeyHex string) (*PrivateKeySigner, error) {
 	}, nil
 }
 
-// GetTransactOpts returns bind.TransactOpts configured for the private key signer
-func (p *PrivateKeySigner) GetTransactOpts(ctx context.Context, chainID uint32) (*bind.TransactOpts, error) {
-	bigChainId := big.NewInt(int64(chainID))
-	auth, err := bind.NewKeyedTransactorWithChainID(p.privateKey, bigChainId)
+// GetTransactOpts returns bind.TransactOpts configured for the private key signer.
+// This method implements the ITransactionSigner interface by creating transaction
+// options that use the stored private key for signing operations.
+//
+// Parameters:
+//   - ctx: Context for the transaction operation
+//   - chainID: The chain ID for the target blockchain
+//
+// Returns:
+//   - *bind.TransactOpts: Configured transaction options for the private key
+//   - error: An error if the transactor cannot be created
+func (p *PrivateKeySigner) GetTransactOpts(ctx context.Context, chainID *big.Int) (*bind.TransactOpts, error) {
+	auth, err := bind.NewKeyedTransactorWithChainID(p.privateKey, chainID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create transactor: %w", err)
 	}
@@ -50,7 +67,12 @@ func (p *PrivateKeySigner) GetTransactOpts(ctx context.Context, chainID uint32) 
 	return auth, nil
 }
 
-// GetAddress returns the address associated with this private key
+// GetAddress returns the Ethereum address associated with this private key.
+// This method implements the ITransactionSigner interface.
+//
+// Returns:
+//   - common.Address: The Ethereum address derived from the private key
+//   - error: Always returns nil for private key signers
 func (p *PrivateKeySigner) GetAddress() (common.Address, error) {
 	return p.address, nil
 }

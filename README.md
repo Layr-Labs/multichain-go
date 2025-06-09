@@ -129,6 +129,182 @@ make bindings
 3. Build Merkle tree from all operator table roots
 4. Return the final Merkle root as a 32-byte array
 
+## CLI Tool Usage
+
+The `transporter` CLI tool provides a command-line interface for calculating and transporting stake table roots across multiple blockchain networks.
+
+### Installation
+
+Build the CLI tool using Make (recommended):
+
+```bash
+make build
+```
+
+This will create the binary at `./bin/transporter`.
+
+Or build manually:
+
+```bash
+go build ./cmd/transporter
+```
+
+Or run directly:
+
+```bash
+go run ./cmd/transporter [command] [options]
+```
+
+### Commands
+
+#### `calculate` - Calculate stake table root without transporting
+
+Calculate the stake table root for verification and testing purposes without actually transporting it to any blockchain networks.
+
+```bash
+go run ./cmd/transporter calculate [options]
+```
+
+#### `transport` - Calculate and transport stake table roots
+
+Calculate stake table roots and transport them to all configured blockchain networks. This includes both global table roots and individual AVS stake tables.
+
+```bash
+go run ./cmd/transporter transport [options]
+```
+
+### Configuration Options
+
+#### Required Flags
+
+- `--cross-chain-registry` / `--ccr` - CrossChainRegistry contract address
+- `--chains` / `-c` - Blockchain configurations in format `chainId:rpcUrl` (can be specified multiple times)
+
+#### Transaction Signing (choose one)
+
+- `--tx-private-key` - Private key for transaction signing (hex format, with or without 0x prefix)
+- `--tx-aws-kms-key-id` - AWS KMS key ID for transaction signing
+- `--tx-aws-region` - AWS region for transaction signing KMS key (default: "us-east-1")
+
+#### BLS Signing (choose one)
+
+- `--bls-private-key` - BLS private key for message signing (hex format)
+- `--bls-keystore-json` - BLS keystore JSON string for message signing *(not yet implemented)*
+- `--bls-aws-secret-name` - AWS Secrets Manager secret name containing BLS keystore *(not yet implemented)*
+- `--bls-aws-region` - AWS region for BLS keystore secret (default: "us-east-1")
+
+#### Optional Flags
+
+- `--debug` / `-d` - Enable debug logging
+- `--block-number` / `-b` - Specific block number to use for calculation (defaults to latest)
+- `--skip-avs-tables` - Skip individual AVS stake table transport (only do global root, transport command only)
+
+### Environment Variables
+
+All flags can be set using environment variables:
+
+- `CROSS_CHAIN_REGISTRY_ADDRESS`
+- `CHAINS`
+- `TX_PRIVATE_KEY`
+- `TX_AWS_KMS_KEY_ID`
+- `TX_AWS_REGION`
+- `BLS_PRIVATE_KEY`
+- `BLS_KEYSTORE_JSON`
+- `BLS_AWS_SECRET_NAME`
+- `BLS_AWS_REGION`
+- `DEBUG`
+- `BLOCK_NUMBER`
+- `SKIP_AVS_TABLES`
+
+### Usage Examples
+
+#### Basic Calculation
+
+```bash
+go run ./cmd/transporter calculate \
+  --cross-chain-registry "0x0022d2014901F2AFBF5610dDFcd26afe2a65Ca6F" \
+  --chains "17000:https://ethereum-holesky-rpc.publicnode.com" \
+  --tx-private-key "0x..." \
+  --bls-private-key "0x..." \
+  --debug
+```
+
+#### Transport with Private Keys
+
+```bash
+go run ./cmd/transporter transport \
+  --cross-chain-registry "0x0022d2014901F2AFBF5610dDFcd26afe2a65Ca6F" \
+  --chains "17000:https://ethereum-holesky-rpc.publicnode.com" \
+  --tx-private-key "0x..." \
+  --bls-private-key "0x..." \
+  --block-number 1000000 \
+  --debug
+```
+
+#### Transport with AWS KMS for Transaction Signing
+
+```bash
+go run ./cmd/transporter transport \
+  --cross-chain-registry "0x0022d2014901F2AFBF5610dDFcd26afe2a65Ca6F" \
+  --chains "17000:https://ethereum-holesky-rpc.publicnode.com" \
+  --tx-aws-kms-key-id "your-kms-key-id" \
+  --tx-aws-region "us-east-1" \
+  --bls-private-key "0x..." \
+  --debug
+```
+
+#### Multiple Chains
+
+```bash
+go run ./cmd/transporter transport \
+  --cross-chain-registry "0x0022d2014901F2AFBF5610dDFcd26afe2a65Ca6F" \
+  --chains "17000:https://ethereum-holesky-rpc.publicnode.com" \
+  --chains "1:https://eth-mainnet.alchemyapi.io/v2/your-api-key" \
+  --tx-private-key "0x..." \
+  --bls-private-key "0x..." \
+  --debug
+```
+
+#### Environment Variable Configuration
+
+```bash
+export CROSS_CHAIN_REGISTRY_ADDRESS="0x0022d2014901F2AFBF5610dDFcd26afe2a65Ca6F"
+export CHAINS="17000:https://ethereum-holesky-rpc.publicnode.com"
+export TX_PRIVATE_KEY="0x..."
+export BLS_PRIVATE_KEY="0x..."
+export DEBUG=true
+
+go run ./cmd/transporter calculate
+```
+
+#### Skip AVS Tables (Global Root Only)
+
+```bash
+go run ./cmd/transporter transport \
+  --cross-chain-registry "0x0022d2014901F2AFBF5610dDFcd26afe2a65Ca6F" \
+  --chains "17000:https://ethereum-holesky-rpc.publicnode.com" \
+  --tx-private-key "0x..." \
+  --bls-private-key "0x..." \
+  --skip-avs-tables \
+  --debug
+```
+
+### Security Notes
+
+- **Private Keys**: Never commit private keys to version control. Use environment variables or secure key management systems.
+- **AWS KMS**: For production use, AWS KMS provides enhanced security for transaction signing.
+- **AWS Secrets Manager**: For BLS keys, AWS Secrets Manager integration is planned for secure key storage.
+
+### Help
+
+Get help for any command:
+
+```bash
+go run ./cmd/transporter --help
+go run ./cmd/transporter transport --help
+go run ./cmd/transporter calculate --help
+```
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

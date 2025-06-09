@@ -1,3 +1,7 @@
+// Package operatorTableCalculator provides stake table root calculation functionality
+// for EigenLayer multichain operations. This package handles the calculation of
+// Merkle tree roots from operator set data across multiple chains, integrating
+// with EigenLayer's CrossChainRegistry to fetch active operator reservations.
 package operatorTableCalculator
 
 import (
@@ -5,11 +9,11 @@ import (
 	"fmt"
 	"github.com/Layr-Labs/multichain-go/pkg/distribution"
 	"github.com/Layr-Labs/multichain-go/pkg/util"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"go.uber.org/zap"
 	"math/big"
 
 	"github.com/Layr-Labs/eigenlayer-contracts/pkg/bindings/ICrossChainRegistry"
-	"github.com/Layr-Labs/eigenlayer-contracts/pkg/bindings/IOperatorTableCalculator"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -19,8 +23,7 @@ import (
 
 // Config holds the configuration for the StakeTableCalculator.
 type Config struct {
-	CrossChainRegistryAddress      common.Address
-	OperatorTableCalculatorAddress common.Address
+	CrossChainRegistryAddress common.Address
 }
 
 // StakeTableCalculator is responsible for calculating the cloud operator table root.
@@ -38,22 +41,12 @@ func NewStakeTableRootCalculator(cfg *Config, ec *ethclient.Client, l *zap.Logge
 		return nil, fmt.Errorf("failed to bind NewICrossChainRegistryCaller: %w", err)
 	}
 
-	l.Sugar().Infow("StakeTableCalculator initialized with registry", zap.String("registryAddress", cfg.OperatorTableCalculatorAddress.Hex()))
-
 	return &StakeTableCalculator{
 		config:                   cfg,
 		ethClient:                ec,
 		logger:                   l,
 		crossChainRegistryCaller: registryCaller,
 	}, nil
-}
-
-func (c *StakeTableCalculator) getOpsetCalculatorCaller(opset ICrossChainRegistry.OperatorSet, address common.Address) (*IOperatorTableCalculator.IOperatorTableCalculatorCaller, error) {
-	caller, err := IOperatorTableCalculator.NewIOperatorTableCalculatorCaller(address, c.ethClient)
-	if err != nil {
-		return nil, fmt.Errorf("failed to bind IOperatorTableCalculatorCaller for opset %d at address %s: %w", opset, address.Hex(), err)
-	}
-	return caller, nil
 }
 
 // CalculateStakeTableRoot performs the complete calculation for a given reference block.
@@ -64,19 +57,16 @@ func (c *StakeTableCalculator) CalculateStakeTableRoot(
 	[32]byte,
 	*merkletree.MerkleTree,
 	*distribution.Distribution,
-	map[distribution.OperatorSet]common.Address,
 	error,
 ) {
 	var zeroRoot [32]byte // Return in case of error or no data
 
-	opsetCalculatorAddresses := make(map[distribution.OperatorSet]common.Address)
-
-	opsetsWithCalculators, calculatorAddrs, err := c.crossChainRegistryCaller.GetActiveGenerationReservations(&bind.CallOpts{
+	opsetsWithCalculators, err := c.crossChainRegistryCaller.GetActiveGenerationReservations(&bind.CallOpts{
 		Context:     ctx,
 		BlockNumber: new(big.Int).SetUint64(referenceBlockNumber),
 	})
 	if err != nil {
-		return zeroRoot, nil, nil, nil, fmt.Errorf("failed to fetch active generation reservations: %w", err)
+		return zeroRoot, nil, nil, fmt.Errorf("failed to fetch active generation reservations: %w", err)
 	}
 
 	c.logger.Sugar().Infow("Fetched active generation reservations",
@@ -84,44 +74,37 @@ func (c *StakeTableCalculator) CalculateStakeTableRoot(
 		zap.Uint64("referenceBlockNumber", referenceBlockNumber),
 	)
 
-	if len(calculatorAddrs) == 0 {
-		c.logger.Sugar().Infow("No calculators registered for this block, cloud root will be zero.")
-		return zeroRoot, nil, nil, opsetCalculatorAddresses, nil // TODO: Define a proper empty tree root
+	dist := distribution.NewDistribution()
+
+	if len(opsetsWithCalculators) == 0 {
+		c.logger.Sugar().Infow("No calculators registered for this block, global table root will be zero.")
+		return zeroRoot, nil, dist, nil
 	}
 
-	dist := distribution.NewDistributionWithOperatorSets(util.Map(opsetsWithCalculators, func(opset ICrossChainRegistry.OperatorSet, i uint64) distribution.OperatorSet {
+	distributionOpsets := util.Map(opsetsWithCalculators, func(opset ICrossChainRegistry.OperatorSet, i uint64) distribution.OperatorSet {
 		return distribution.OperatorSet{
 			Id:  opset.Id,
-			Avs: common.HexToAddress(opset.Avs.Hex()),
+			Avs: opset.Avs,
 		}
-	}))
+	})
+
+	dist.SetOperatorSets(distributionOpsets)
 
 	opsetTableRoots := make([][]byte, len(opsetsWithCalculators))
-	for i, opset := range opsetsWithCalculators {
-		calcAddr := calculatorAddrs[i]
-
-		calc, err := c.getOpsetCalculatorCaller(opset, calcAddr)
-		if err != nil {
-			return zeroRoot, nil, nil, nil, fmt.Errorf("failed to get opset calculator caller for opset %d: %w", opset, err)
-		}
-
-		tableBytes, err := calc.CalculateOperatorTableBytes(&bind.CallOpts{
+	for i, opset := range distributionOpsets {
+		// get the table bytes for the operator set
+		tableBytes, err := c.crossChainRegistryCaller.CalculateOperatorTableBytes(&bind.CallOpts{
 			Context:     ctx,
 			BlockNumber: new(big.Int).SetUint64(referenceBlockNumber),
-		}, IOperatorTableCalculator.OperatorSet(opset))
+		}, opsetsWithCalculators[i])
 		if err != nil {
-			return zeroRoot, nil, nil, nil, fmt.Errorf("failed to calculate operator table bytes for opset %d: %w", opset, err)
+			return zeroRoot, nil, nil, fmt.Errorf("failed to calculate operator table bytes for opset %d: %w", opset, err)
 		}
 		opsetTableRoots[i] = tableBytes
-		distOpset := distribution.OperatorSet{
-			Id:  opset.Id,
-			Avs: common.HexToAddress(opset.Avs.Hex()),
-		}
 
-		err = dist.SetTableData(distOpset, tableBytes)
-		opsetCalculatorAddresses[distOpset] = calcAddr
+		err = dist.SetTableData(opset, tableBytes)
 		if err != nil {
-			return zeroRoot, nil, nil, nil, fmt.Errorf("failed to set table data for opset %d: %w", opset, err)
+			return zeroRoot, nil, nil, fmt.Errorf("failed to set table data for opset %d: %w", opset, err)
 		}
 	}
 
@@ -130,14 +113,14 @@ func (c *StakeTableCalculator) CalculateStakeTableRoot(
 		merkletree.WithHashType(keccak256.New()),
 	)
 	if err != nil {
-		return zeroRoot, nil, nil, nil, fmt.Errorf("calculator: failed to create merkle tree: %w", err)
+		return zeroRoot, nil, nil, fmt.Errorf("calculator: failed to create merkle tree: %w", err)
 	}
 
 	merkleRoot := tree.Root()
 
 	c.logger.Sugar().Infow("calculated stake table root",
-		zap.ByteString("root", merkleRoot[:]),
+		zap.String("root", hexutil.Encode(merkleRoot[:])),
 		zap.Uint64("referenceBlockNumber", referenceBlockNumber),
 	)
-	return [32]byte(merkleRoot), tree, dist, opsetCalculatorAddresses, nil
+	return [32]byte(merkleRoot), tree, dist, nil
 }
