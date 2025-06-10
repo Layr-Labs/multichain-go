@@ -18,6 +18,11 @@ deps/go:
 # -----------------------------------------------------------------------------
 # Building
 # -----------------------------------------------------------------------------
+.PHONY: build
+build:
+	mkdir -p $(BIN)
+	$(GO) build $(GO_FLAGS) -o $(BIN)/transporter ./cmd/transporter
+
 .PHONY: bindings
 bindings: deps
 	./scripts/compileBindings.sh
