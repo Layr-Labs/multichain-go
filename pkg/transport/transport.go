@@ -16,7 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/wealdtech/go-merkletree/v2"
+	merkletree "github.com/wealdtech/go-merkletree/v2"
 	"go.uber.org/zap"
 	"math/big"
 )
@@ -132,8 +132,8 @@ func (t *Transport) SignAndTransportGlobalTableRoot(
 		}
 
 		cert := IOperatorTableUpdater.IBN254CertificateVerifierTypesBN254Certificate{
-			MessageHash:        messageHash,        // Use computed message hash instead of raw root
-			ReferenceTimestamp: referenceTimestamp, 
+			MessageHash:        messageHash, // Use computed message hash instead of raw root
+			ReferenceTimestamp: referenceTimestamp,
 			Signature:          *sigG1,
 			Apk:                *apkG2,
 		}
@@ -342,26 +342,25 @@ func flattenHashes(hashes [][]byte) []byte {
 	return result
 }
 
-
 // generateGlobalTableUpdateMessageHash generates the message hash for global table updates
-// using the referenceTimestamp and globalTableRoot 
+// using the referenceTimestamp and globalTableRoot
 func (t *Transport) generateGlobalTableUpdateMessageHash(referenceTimestamp uint32, globalTableRoot [32]byte) ([32]byte, error) {
 	timestampBytes := make([]byte, 4)
 	binary.BigEndian.PutUint32(timestampBytes, referenceTimestamp)
-	
+
 	// Concatenate globalTableRoot with timestamp
 	data := make([]byte, 0, 32+4)
-	data = append(data, globalTableRoot[:]...) 
-	data = append(data, timestampBytes...)    
-	
+	data = append(data, globalTableRoot[:]...)
+	data = append(data, timestampBytes...)
+
 	// Compute hash of the concatenated data
 	hash := crypto.Keccak256Hash(data)
-	
+
 	t.logger.Sugar().Debugw("Generated global table update message hash",
-		zap.String("globalTableRoot", hexutil.Encode(globalTableRoot[:])), 
-		zap.Uint32("referenceTimestamp", referenceTimestamp),  
-		zap.String("messageHash", hexutil.Encode(hash[:])),    
+		zap.String("globalTableRoot", hexutil.Encode(globalTableRoot[:])),
+		zap.Uint32("referenceTimestamp", referenceTimestamp),
+		zap.String("messageHash", hexutil.Encode(hash[:])),
 	)
-	
+
 	return hash, nil
 }
