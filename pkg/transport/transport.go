@@ -149,6 +149,7 @@ func (t *Transport) SignAndTransportGlobalTableRoot(
 			Signature:          *sigG1,
 			Apk:                *apkG2,
 		}
+		fmt.Printf("Cert: %+v\n", cert)
 
 		re, err := updaterTransactor.ConfirmGlobalTableRoot(
 			txOpts,

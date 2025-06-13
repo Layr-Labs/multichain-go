@@ -106,7 +106,7 @@ func main() {
 		nil,
 	)
 	if err != nil {
-		l.Sugar().Fatalf("Failed to sign and transport global table root: %v", err)
+		l.Sugar().Fatalf("Failed to sign and transport global table root: %w", err)
 	}
 	l.Sugar().Infow("Successfully signed and transported global table root, sleeping for 15 seconds")
 	time.Sleep(15 * time.Second)
