@@ -31,12 +31,12 @@ type StakeTableCalculator struct {
 	config                   *Config
 	ethClient                *ethclient.Client
 	logger                   *zap.Logger
-	crossChainRegistryCaller *ICrossChainRegistry.ICrossChainRegistryCaller
+	crossChainRegistryCaller *ICrossChainRegistry.ICrossChainRegistry
 }
 
 // NewStakeTableRootCalculator creates a new instance of StakeTableCalculator.
 func NewStakeTableRootCalculator(cfg *Config, ec *ethclient.Client, l *zap.Logger) (*StakeTableCalculator, error) {
-	registryCaller, err := ICrossChainRegistry.NewICrossChainRegistryCaller(cfg.CrossChainRegistryAddress, ec)
+	registryCaller, err := ICrossChainRegistry.NewICrossChainRegistry(cfg.CrossChainRegistryAddress, ec)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bind NewICrossChainRegistryCaller: %w", err)
 	}
