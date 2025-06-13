@@ -41,6 +41,14 @@ func NewStakeTableRootCalculator(cfg *Config, ec *ethclient.Client, l *zap.Logge
 		return nil, fmt.Errorf("failed to bind NewICrossChainRegistryCaller: %w", err)
 	}
 
+	reservations, err := registryCaller.GetActiveGenerationReservations(&bind.CallOpts{})
+	if err != nil {
+		l.Sugar().Fatalf("Failed to get active generation reservations: %v", err)
+	}
+	for i, opset := range reservations {
+		l.Sugar().Infow("Active Operator Set", "Index", i, "Opset", opset)
+	}
+
 	return &StakeTableCalculator{
 		config:                   cfg,
 		ethClient:                ec,

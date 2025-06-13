@@ -3,14 +3,12 @@ package main
 import (
 	"context"
 	"github.com/Layr-Labs/crypto-libs/pkg/bn254"
-	"github.com/Layr-Labs/eigenlayer-contracts/pkg/bindings/ICrossChainRegistry"
 	"github.com/Layr-Labs/multichain-go/pkg/blsSigner"
 	"github.com/Layr-Labs/multichain-go/pkg/chainManager"
 	"github.com/Layr-Labs/multichain-go/pkg/logger"
 	"github.com/Layr-Labs/multichain-go/pkg/operatorTableCalculator"
 	"github.com/Layr-Labs/multichain-go/pkg/transport"
 	"github.com/Layr-Labs/multichain-go/pkg/txSigner"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"time"
@@ -46,18 +44,6 @@ func main() {
 	txSign, err := txSigner.NewPrivateKeySigner(transporterPrivateKey)
 	if err != nil {
 		l.Sugar().Fatalf("Failed to create private key signer: %v", err)
-	}
-
-	caller, err := ICrossChainRegistry.NewICrossChainRegistryCaller(crossChainRegistryAddress, holeskyClient.RPCClient)
-	if err != nil {
-		l.Sugar().Fatalf("Failed to bind ICrossChainRegistryCaller: %v", err)
-	}
-	reservations, err := caller.GetActiveGenerationReservations(&bind.CallOpts{})
-	if err != nil {
-		l.Sugar().Fatalf("Failed to get active generation reservations: %v", err)
-	}
-	for i, opset := range reservations {
-		l.Sugar().Infow("Active Operator Set", "Index", i, "Opset", opset)
 	}
 
 	tableCalc, err := operatorTableCalculator.NewStakeTableRootCalculator(&operatorTableCalculator.Config{
