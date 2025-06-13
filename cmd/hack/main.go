@@ -16,8 +16,8 @@ import (
 
 var (
 	crossChainRegistryAddress = common.HexToAddress("0x0022d2014901F2AFBF5610dDFcd26afe2a65Ca6F")
-	transporterPrivateKey     = "<key>"
-	blsPrivateKey             = "<key>"
+	transporterPrivateKey     = "0x2ba58f64c57faa1073d63add89799f2a0101855a8b289b1330cb500758d5d1ee"
+	blsPrivateKey             = "0x2ba58f64c57faa1073d63add89799f2a0101855a8b289b1330cb500758d5d1ee"
 )
 
 func main() {

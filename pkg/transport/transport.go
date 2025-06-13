@@ -10,6 +10,7 @@ import (
 	"github.com/Layr-Labs/multichain-go/pkg/chainManager"
 	"github.com/Layr-Labs/multichain-go/pkg/distribution"
 	"github.com/Layr-Labs/multichain-go/pkg/txSigner"
+	"github.com/Layr-Labs/multichain-go/pkg/util"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -61,6 +62,7 @@ func (t *Transport) SignAndTransportGlobalTableRoot(
 	root [32]byte,
 	referenceTimestamp uint32,
 	referenceBlockHeight uint64,
+	ignoreChainIds []*big.Int,
 ) error {
 	t.logger.Info("Signing and transporting global table root",
 		zap.String("root", hexutil.Encode(root[:])),
@@ -96,6 +98,16 @@ func (t *Transport) SignAndTransportGlobalTableRoot(
 	}
 
 	for i, chainId := range chainIds {
+		ignoredChainId := util.Find(ignoreChainIds, func(id *big.Int) bool {
+			return chainId.Cmp(id) == 0
+		})
+		if ignoredChainId != nil {
+			t.logger.Sugar().Infow("Skipping transport for ignored chain",
+				zap.Uint64("chainId", chainId.Uint64()),
+				zap.String("chainAddress", addresses[i].String()),
+			)
+			continue
+		}
 		addr := addresses[i]
 		chain, err := t.chainManager.GetChainForId(chainId.Uint64())
 		if err != nil {
