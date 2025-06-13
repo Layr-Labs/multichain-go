@@ -171,6 +171,7 @@ func (t *Transport) SignAndTransportAvsStakeTable(
 	root [32]byte,
 	tree *merkletree.MerkleTree,
 	dist *distribution.Distribution,
+	ignoreChainIds []*big.Int,
 ) error {
 	// generate the proof for the specific operator set
 	proof, opsetIndex, err := t.generateOperatorSetProof(tree, dist, operatorSet)
@@ -198,6 +199,16 @@ func (t *Transport) SignAndTransportAvsStakeTable(
 
 	// transport the stake table to each supported destination chain
 	for i, chainId := range chainIds {
+		ignoredChainId := util.Find(ignoreChainIds, func(id *big.Int) bool {
+			return chainId.Cmp(id) == 0
+		})
+		if ignoredChainId != nil {
+			t.logger.Sugar().Infow("Skipping transport for ignored chain",
+				zap.Uint64("chainId", chainId.Uint64()),
+				zap.String("chainAddress", addresses[i].String()),
+			)
+			continue
+		}
 		addr := addresses[i]
 		// Get transaction options from signer
 		txOpts, err := t.txSigner.GetTransactOpts(context.Background(), chainId)
