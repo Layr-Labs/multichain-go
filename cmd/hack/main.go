@@ -10,6 +10,7 @@ import (
 	"github.com/Layr-Labs/multichain-go/pkg/transport"
 	"github.com/Layr-Labs/multichain-go/pkg/txSigner"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/rpc"
 	"math/big"
 	"time"
 )
@@ -21,7 +22,7 @@ var (
 )
 
 func main() {
-	l, err := logger.NewLogger(&logger.LoggerConfig{Debug: false})
+	l, err := logger.NewLogger(&logger.LoggerConfig{Debug: true})
 	if err != nil {
 		panic(err)
 	}
@@ -53,15 +54,15 @@ func main() {
 		l.Sugar().Fatalf("Failed to create StakeTableRootCalculator: %v", err)
 	}
 
-	blockNumber, err := holeskyClient.RPCClient.BlockNumber(ctx)
+	block, err := holeskyClient.RPCClient.BlockByNumber(ctx, big.NewInt(int64(rpc.FinalizedBlockNumber)))
 	if err != nil {
 		l.Sugar().Fatalf("Failed to get block number: %v", err)
 	}
-	blockNumber = blockNumber - 100 // Use a block number 100 blocks in the past for testing
-	block, err := holeskyClient.RPCClient.BlockByNumber(ctx, big.NewInt(int64(blockNumber)))
-	if err != nil {
-		l.Sugar().Fatalf("Failed to get block by number: %v", err)
-	}
+	// // blockNumber = blockNumber - 10 // Use a block number 100 blocks in the past for testing
+	// block, err := holeskyClient.RPCClient.BlockByNumber(ctx, blockNumber)
+	// if err != nil {
+	// 	l.Sugar().Fatalf("Failed to get block by number: %v", err)
+	// }
 
 	root, tree, dist, err := tableCalc.CalculateStakeTableRoot(ctx, block.NumberU64())
 	if err != nil {
@@ -102,13 +103,14 @@ func main() {
 	err = stakeTransport.SignAndTransportGlobalTableRoot(
 		root,
 		referenceTimestamp,
-		blockNumber,
+		block.NumberU64(),
+		nil,
 	)
 	if err != nil {
 		l.Sugar().Fatalf("Failed to sign and transport global table root: %v", err)
 	}
 	l.Sugar().Infow("Successfully signed and transported global table root, sleeping for 15 seconds")
-	time.Sleep(15 * time.Second)
+	time.Sleep(25 * time.Second)
 
 	opsets := dist.GetOperatorSets()
 	if len(opsets) == 0 {
@@ -118,11 +120,12 @@ func main() {
 	for _, opset := range opsets {
 		err = stakeTransport.SignAndTransportAvsStakeTable(
 			referenceTimestamp,
-			blockNumber,
+			block.NumberU64(),
 			opset,
 			root,
 			tree,
 			dist,
+			nil,
 		)
 		if err != nil {
 			l.Sugar().Fatalf("Failed to sign and transport AVS stake table for opset %v: %v", opset, err)

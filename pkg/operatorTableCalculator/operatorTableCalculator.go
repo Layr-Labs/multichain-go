@@ -93,6 +93,11 @@ func (c *StakeTableCalculator) CalculateStakeTableRoot(
 	opsetTableRoots := make([][]byte, len(opsetsWithCalculators))
 	for i, opset := range distributionOpsets {
 		// get the table bytes for the operator set
+		c.logger.Sugar().Infow("Calculating operator table bytes for opset",
+			zap.Uint32("opsetId", opset.Id),
+			zap.String("opsetAvs", opset.Avs.String()),
+		)
+
 		tableBytes, err := c.crossChainRegistryCaller.CalculateOperatorTableBytes(&bind.CallOpts{
 			Context:     ctx,
 			BlockNumber: new(big.Int).SetUint64(referenceBlockNumber),
@@ -100,6 +105,11 @@ func (c *StakeTableCalculator) CalculateStakeTableRoot(
 		if err != nil {
 			return zeroRoot, nil, nil, fmt.Errorf("failed to calculate operator table bytes for opset %d: %w", opset, err)
 		}
+		c.logger.Sugar().Infow("Got operator table bytes for opset",
+			zap.Uint32("opsetId", opset.Id),
+			zap.String("opsetAvs", opset.Avs.String()),
+			zap.String("bytes", hexutil.Encode(tableBytes)),
+		)
 		opsetTableRoots[i] = tableBytes
 
 		err = dist.SetTableData(opset, tableBytes)
