@@ -72,6 +72,7 @@ func (c *StakeTableCalculator) CalculateStakeTableRoot(
 	c.logger.Sugar().Infow("Fetched active generation reservations",
 		zap.Int("opsetCount", len(opsetsWithCalculators)),
 		zap.Uint64("referenceBlockNumber", referenceBlockNumber),
+		zap.Any("opsetsWithCalculators", opsetsWithCalculators),
 	)
 
 	dist := distribution.NewDistribution()
