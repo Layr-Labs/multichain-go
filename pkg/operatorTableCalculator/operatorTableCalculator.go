@@ -70,8 +70,8 @@ func (c *StakeTableCalculator) CalculateStakeTableRoot(
 	var zeroRoot [32]byte // Return in case of error or no data
 
 	opsetsWithCalculators, err := c.crossChainRegistryCaller.GetActiveGenerationReservations(&bind.CallOpts{
-		// Context:     ctx,
-		// BlockNumber: new(big.Int).SetUint64(referenceBlockNumber),
+		Context:     ctx,
+		BlockNumber: new(big.Int).SetUint64(referenceBlockNumber),
 	})
 	if err != nil {
 		return zeroRoot, nil, nil, fmt.Errorf("failed to fetch active generation reservations: %w", err)
