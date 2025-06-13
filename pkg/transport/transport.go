@@ -19,6 +19,7 @@ import (
 	merkletree "github.com/wealdtech/go-merkletree/v2"
 	"go.uber.org/zap"
 	"math/big"
+	"slices"
 )
 
 type TransportConfig struct {
@@ -63,6 +64,7 @@ func (t *Transport) SignAndTransportGlobalTableRoot(
 	root [32]byte,
 	referenceTimestamp uint32,
 	referenceBlockHeight uint64,
+	ignoreChainIds []*big.Int,
 ) error {
 	t.logger.Info("Signing and transporting global table root",
 		zap.String("root", hexutil.Encode(root[:])),
@@ -104,6 +106,12 @@ func (t *Transport) SignAndTransportGlobalTableRoot(
 	}
 
 	for i, chainId := range chainIds {
+		if slices.Contains(ignoreChainIds, chainId) {
+			t.logger.Sugar().Infow("Ignoring chain ID",
+				zap.Uint64("chainId", chainId.Uint64()),
+			)
+			continue
+		}
 		addr := addresses[i]
 		chain, err := t.chainManager.GetChainForId(chainId.Uint64())
 		if err != nil {

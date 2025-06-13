@@ -361,7 +361,7 @@ func transportAction(c *cli.Context) error {
 	)
 
 	// Transport global table root
-	err = stakeTransport.SignAndTransportGlobalTableRoot(root, referenceTimestamp, blockNumber)
+	err = stakeTransport.SignAndTransportGlobalTableRoot(root, referenceTimestamp, blockNumber, nil)
 	if err != nil {
 		return fmt.Errorf("failed to transport global table root: %w", err)
 	}

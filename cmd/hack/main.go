@@ -103,6 +103,7 @@ func main() {
 		root,
 		referenceTimestamp,
 		blockNumber,
+		nil,
 	)
 	if err != nil {
 		l.Sugar().Fatalf("Failed to sign and transport global table root: %v", err)
