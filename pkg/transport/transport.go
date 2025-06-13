@@ -2,7 +2,6 @@ package transport
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
 	"github.com/Layr-Labs/crypto-libs/pkg/bn254"
 	"github.com/Layr-Labs/eigenlayer-contracts/pkg/bindings/ICrossChainRegistry"
@@ -14,9 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	merkletree "github.com/wealdtech/go-merkletree/v2"
+	"github.com/wealdtech/go-merkletree/v2"
 	"go.uber.org/zap"
 	"math/big"
 )
@@ -74,13 +72,7 @@ func (t *Transport) SignAndTransportGlobalTableRoot(
 		return nil
 	}
 
-	// Generate the proper message hash using referenceTimestamp and globalTableRoot
-	messageHash, err := t.generateGlobalTableUpdateMessageHash(referenceTimestamp, root)
-	if err != nil {
-		return fmt.Errorf("failed to generate global table update message hash: %w", err)
-	}
-
-	sigG1, err := t.generateMessageHashSignature(messageHash)
+	sigG1, err := t.generateMessageHashSignature(root)
 	if err != nil {
 		return err
 	}
@@ -132,8 +124,8 @@ func (t *Transport) SignAndTransportGlobalTableRoot(
 		}
 
 		cert := IOperatorTableUpdater.IBN254CertificateVerifierTypesBN254Certificate{
-			MessageHash:        messageHash, // Use computed message hash instead of raw root
-			ReferenceTimestamp: referenceTimestamp,
+			MessageHash:        root,
+			ReferenceTimestamp: 1749246396,
 			Signature:          *sigG1,
 			Apk:                *apkG2,
 		}
@@ -312,10 +304,9 @@ func (t *Transport) getApkFromPrivateKey() (*IOperatorTableUpdater.BN254G2Point,
 	}, nil
 }
 
-// generateMessageHashSignature signs the computed message hash
-func (t *Transport) generateMessageHashSignature(messageHash [32]byte) (*IOperatorTableUpdater.BN254G1Point, error) {
+func (t *Transport) generateMessageHashSignature(root [32]byte) (*IOperatorTableUpdater.BN254G1Point, error) {
 	// Sign the message hash using the private key
-	signature, err := t.blsSigner.SignBytes(messageHash)
+	signature, err := t.blsSigner.SignBytes(root)
 	if err != nil {
 		t.logger.Error("Failed to sign message hash", zap.Error(err))
 		return nil, fmt.Errorf("failed to sign message hash: %w", err)
@@ -340,27 +331,4 @@ func flattenHashes(hashes [][]byte) []byte {
 		result = append(result, hashes[i]...)
 	}
 	return result
-}
-
-// generateGlobalTableUpdateMessageHash generates the message hash for global table updates
-// using the referenceTimestamp and globalTableRoot
-func (t *Transport) generateGlobalTableUpdateMessageHash(referenceTimestamp uint32, globalTableRoot [32]byte) ([32]byte, error) {
-	timestampBytes := make([]byte, 4)
-	binary.BigEndian.PutUint32(timestampBytes, referenceTimestamp)
-
-	// Concatenate globalTableRoot with timestamp
-	data := make([]byte, 0, 32+4)
-	data = append(data, globalTableRoot[:]...)
-	data = append(data, timestampBytes...)
-
-	// Compute hash of the concatenated data
-	hash := crypto.Keccak256Hash(data)
-
-	t.logger.Sugar().Debugw("Generated global table update message hash",
-		zap.String("globalTableRoot", hexutil.Encode(globalTableRoot[:])),
-		zap.Uint32("referenceTimestamp", referenceTimestamp),
-		zap.String("messageHash", hexutil.Encode(hash[:])),
-	)
-
-	return hash, nil
 }

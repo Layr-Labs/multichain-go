@@ -15,7 +15,7 @@ import (
 	"github.com/Layr-Labs/multichain-go/pkg/transport"
 	"github.com/Layr-Labs/multichain-go/pkg/txSigner"
 	"github.com/ethereum/go-ethereum/common"
-	cli "github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v2"
 	"go.uber.org/zap"
 )
 
