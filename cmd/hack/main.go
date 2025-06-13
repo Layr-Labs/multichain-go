@@ -30,8 +30,9 @@ func main() {
 	cm := chainManager.NewChainManager()
 
 	holeskyConfig := &chainManager.ChainConfig{
-		ChainID: 17000,
-		RPCUrl:  "https://ethereum-holesky-rpc.publicnode.com",
+		ChainID: 31337,
+		// RPCUrl:  "https://ethereum-holesky-rpc.publicnode.com",
+		RPCUrl: "http://localhost:8545",
 	}
 	if err := cm.AddChain(holeskyConfig); err != nil {
 		l.Sugar().Fatalf("Failed to add chain: %v", err)
@@ -57,7 +58,7 @@ func main() {
 	if err != nil {
 		l.Sugar().Fatalf("Failed to get block number: %v", err)
 	}
-	blockNumber = blockNumber - 100 // Use a block number 100 blocks in the past for testing
+	// blockNumber = blockNumber - 10 // Use a block number 100 blocks in the past for testing
 	block, err := holeskyClient.RPCClient.BlockByNumber(ctx, big.NewInt(int64(blockNumber)))
 	if err != nil {
 		l.Sugar().Fatalf("Failed to get block by number: %v", err)
@@ -103,6 +104,7 @@ func main() {
 		root,
 		referenceTimestamp,
 		blockNumber,
+		[]*big.Int{new(big.Int).SetUint64(17000)}, // Example operator set ID, adjust as needed
 	)
 	if err != nil {
 		l.Sugar().Fatalf("Failed to sign and transport global table root: %v", err)
