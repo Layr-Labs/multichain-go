@@ -20,3 +20,24 @@ func Map[A any, B any](coll []A, mapper func(i A, index uint64) B) []B {
 	}
 	return out
 }
+
+// Find returns the first element in a slice that satisfies the provided criteria function.
+// If no element satisfies the criteria, nil is returned.
+//
+// Type Parameters:
+//   - A: The type of elements in the slice
+//
+// Parameters:
+//   - coll: The input slice to search
+//   - criteria: Function that determines whether an element matches
+//
+// Returns:
+//   - *A: Pointer to the first matching element, or nil if no match is found
+func Find[A any](coll []*A, criteria func(i *A) bool) *A {
+	for _, item := range coll {
+		if criteria(item) {
+			return item
+		}
+	}
+	return nil
+}
