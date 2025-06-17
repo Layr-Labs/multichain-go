@@ -48,5 +48,3 @@ require (
 	golang.org/x/text v0.26.0 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
-
-replace github.com/ethereum/go-ethereum => /Users/seanmcgary/Code/open-source/go-ethereum
