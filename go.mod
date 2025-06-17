@@ -3,8 +3,8 @@ module github.com/Layr-Labs/multichain-go
 go 1.23.6
 
 require (
-	github.com/Layr-Labs/crypto-libs v0.0.3-0.20250610034604-4f5496fe5831
-	github.com/Layr-Labs/eigenlayer-contracts v1.6.0-rc.0.0.20250610150445-28773a0671c6
+	github.com/Layr-Labs/crypto-libs v0.0.3
+	github.com/Layr-Labs/eigenlayer-contracts v1.6.0-rc.0.0.20250616202559-70e3fc0e60c8
 	github.com/aws/aws-sdk-go v1.55.7
 	github.com/ethereum/go-ethereum v1.15.11
 	github.com/urfave/cli/v2 v2.27.6
@@ -13,7 +13,6 @@ require (
 )
 
 require (
-	github.com/Layr-Labs/hourglass-monorepo/contracts v0.0.0-20250603132723-b0a53eef24e1 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/bits-and-blooms/bitset v1.20.0 // indirect

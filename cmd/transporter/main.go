@@ -361,7 +361,7 @@ func transportAction(c *cli.Context) error {
 	)
 
 	// Transport global table root
-	err = stakeTransport.SignAndTransportGlobalTableRoot(root, referenceTimestamp, blockNumber)
+	err = stakeTransport.SignAndTransportGlobalTableRoot(root, referenceTimestamp, blockNumber, nil)
 	if err != nil {
 		return fmt.Errorf("failed to transport global table root: %w", err)
 	}
@@ -376,7 +376,7 @@ func transportAction(c *cli.Context) error {
 		} else {
 			l.Sugar().Infow("Transporting AVS stake tables", "operatorSetCount", len(opsets))
 			for _, opset := range opsets {
-				err = stakeTransport.SignAndTransportAvsStakeTable(referenceTimestamp, blockNumber, opset, root, tree, dist)
+				err = stakeTransport.SignAndTransportAvsStakeTable(referenceTimestamp, blockNumber, opset, root, tree, dist, nil)
 				if err != nil {
 					return fmt.Errorf("failed to transport AVS stake table for opset %v: %w", opset, err)
 				}

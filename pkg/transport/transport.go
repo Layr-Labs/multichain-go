@@ -2,7 +2,6 @@ package transport
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
 	"github.com/Layr-Labs/crypto-libs/pkg/bn254"
 	"github.com/Layr-Labs/eigenlayer-contracts/pkg/bindings/ICrossChainRegistry"
@@ -11,10 +10,10 @@ import (
 	"github.com/Layr-Labs/multichain-go/pkg/chainManager"
 	"github.com/Layr-Labs/multichain-go/pkg/distribution"
 	"github.com/Layr-Labs/multichain-go/pkg/txSigner"
+	"github.com/Layr-Labs/multichain-go/pkg/util"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	merkletree "github.com/wealdtech/go-merkletree/v2"
 	"go.uber.org/zap"
@@ -63,6 +62,7 @@ func (t *Transport) SignAndTransportGlobalTableRoot(
 	root [32]byte,
 	referenceTimestamp uint32,
 	referenceBlockHeight uint64,
+	ignoreChainIds []*big.Int,
 ) error {
 	t.logger.Info("Signing and transporting global table root",
 		zap.String("root", hexutil.Encode(root[:])),
@@ -72,17 +72,6 @@ func (t *Transport) SignAndTransportGlobalTableRoot(
 	if root == emptyRoot {
 		t.logger.Info("Empty root provided, skipping signing and transport")
 		return nil
-	}
-
-	// Generate the proper message hash using referenceTimestamp and globalTableRoot
-	messageHash, err := t.generateGlobalTableUpdateMessageHash(referenceTimestamp, root)
-	if err != nil {
-		return fmt.Errorf("failed to generate global table update message hash: %w", err)
-	}
-
-	sigG1, err := t.generateMessageHashSignature(messageHash)
-	if err != nil {
-		return err
 	}
 
 	apkG2, err := t.getApkFromPrivateKey()
@@ -104,6 +93,16 @@ func (t *Transport) SignAndTransportGlobalTableRoot(
 	}
 
 	for i, chainId := range chainIds {
+		ignoredChainId := util.Find(ignoreChainIds, func(id *big.Int) bool {
+			return chainId.Cmp(id) == 0
+		})
+		if ignoredChainId != nil {
+			t.logger.Sugar().Infow("Skipping transport for ignored chain",
+				zap.Uint64("chainId", chainId.Uint64()),
+				zap.String("chainAddress", addresses[i].String()),
+			)
+			continue
+		}
 		addr := addresses[i]
 		chain, err := t.chainManager.GetChainForId(chainId.Uint64())
 		if err != nil {
@@ -119,11 +118,22 @@ func (t *Transport) SignAndTransportGlobalTableRoot(
 			return fmt.Errorf("failed to get operator table updater transactor for chain %d: %w", chainId, err)
 		}
 
-		previouslyReferencedTimestamp, err := updaterTransactor.GetLatestReferenceTimestamp(&bind.CallOpts{})
+		messageHash, err := updaterTransactor.GetGlobalTableUpdateMessageHash(&bind.CallOpts{}, root, referenceTimestamp)
+		if err != nil {
+			return fmt.Errorf("failed to get global table update message hash: %w", err)
+		}
+
+		sigG1, err := t.generateMessageHashSignature(messageHash)
+		if err != nil {
+			return err
+		}
+
+		previouslyReferencedTimestamp, err := updaterTransactor.GetGlobalConfirmerSetReferenceTimestamp(&bind.CallOpts{})
 		if err != nil {
 			return fmt.Errorf("failed to get latest reference timestamp: %w", err)
 		}
-		_ = previouslyReferencedTimestamp
+		fmt.Printf("Reference timestamp for global table root: %d\n", previouslyReferencedTimestamp)
+		fmt.Printf("New timestamp: %d\n", referenceTimestamp)
 
 		// Get transaction options from signer
 		txOpts, err := t.txSigner.GetTransactOpts(context.Background(), chainId)
@@ -132,8 +142,8 @@ func (t *Transport) SignAndTransportGlobalTableRoot(
 		}
 
 		cert := IOperatorTableUpdater.IBN254CertificateVerifierTypesBN254Certificate{
-			MessageHash:        messageHash, // Use computed message hash instead of raw root
-			ReferenceTimestamp: referenceTimestamp,
+			MessageHash:        messageHash,
+			ReferenceTimestamp: previouslyReferencedTimestamp,
 			Signature:          *sigG1,
 			Apk:                *apkG2,
 		}
@@ -145,6 +155,7 @@ func (t *Transport) SignAndTransportGlobalTableRoot(
 			referenceTimestamp,
 		)
 		if err != nil {
+			fmt.Printf("Error: %+v\n", err)
 			t.logger.Error("Failed to update BN254 operator table", zap.Error(err))
 			return err
 		}
@@ -167,6 +178,7 @@ func (t *Transport) SignAndTransportAvsStakeTable(
 	root [32]byte,
 	tree *merkletree.MerkleTree,
 	dist *distribution.Distribution,
+	ignoreChainIds []*big.Int,
 ) error {
 	// generate the proof for the specific operator set
 	proof, opsetIndex, err := t.generateOperatorSetProof(tree, dist, operatorSet)
@@ -194,6 +206,16 @@ func (t *Transport) SignAndTransportAvsStakeTable(
 
 	// transport the stake table to each supported destination chain
 	for i, chainId := range chainIds {
+		ignoredChainId := util.Find(ignoreChainIds, func(id *big.Int) bool {
+			return chainId.Cmp(id) == 0
+		})
+		if ignoredChainId != nil {
+			t.logger.Sugar().Infow("Skipping transport for ignored chain",
+				zap.Uint64("chainId", chainId.Uint64()),
+				zap.String("chainAddress", addresses[i].String()),
+			)
+			continue
+		}
 		addr := addresses[i]
 		// Get transaction options from signer
 		txOpts, err := t.txSigner.GetTransactOpts(context.Background(), chainId)
@@ -340,27 +362,4 @@ func flattenHashes(hashes [][]byte) []byte {
 		result = append(result, hashes[i]...)
 	}
 	return result
-}
-
-// generateGlobalTableUpdateMessageHash generates the message hash for global table updates
-// using the referenceTimestamp and globalTableRoot
-func (t *Transport) generateGlobalTableUpdateMessageHash(referenceTimestamp uint32, globalTableRoot [32]byte) ([32]byte, error) {
-	timestampBytes := make([]byte, 4)
-	binary.BigEndian.PutUint32(timestampBytes, referenceTimestamp)
-
-	// Concatenate globalTableRoot with timestamp
-	data := make([]byte, 0, 32+4)
-	data = append(data, globalTableRoot[:]...)
-	data = append(data, timestampBytes...)
-
-	// Compute hash of the concatenated data
-	hash := crypto.Keccak256Hash(data)
-
-	t.logger.Sugar().Debugw("Generated global table update message hash",
-		zap.String("globalTableRoot", hexutil.Encode(globalTableRoot[:])),
-		zap.Uint32("referenceTimestamp", referenceTimestamp),
-		zap.String("messageHash", hexutil.Encode(hash[:])),
-	)
-
-	return hash, nil
 }
