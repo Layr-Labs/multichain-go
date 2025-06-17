@@ -58,11 +58,6 @@ func main() {
 	if err != nil {
 		l.Sugar().Fatalf("Failed to get block number: %v", err)
 	}
-	// // blockNumber = blockNumber - 10 // Use a block number 100 blocks in the past for testing
-	// block, err := holeskyClient.RPCClient.BlockByNumber(ctx, blockNumber)
-	// if err != nil {
-	// 	l.Sugar().Fatalf("Failed to get block by number: %v", err)
-	// }
 
 	root, tree, dist, err := tableCalc.CalculateStakeTableRoot(ctx, block.NumberU64())
 	if err != nil {
