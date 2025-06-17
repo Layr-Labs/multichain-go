@@ -105,7 +105,7 @@ func main() {
 		l.Sugar().Fatalf("Failed to sign and transport global table root: %v", err)
 	}
 	l.Sugar().Infow("Successfully signed and transported global table root, sleeping for 15 seconds")
-	time.Sleep(25 * time.Second)
+	time.Sleep(30 * time.Second)
 
 	opsets := dist.GetOperatorSets()
 	if len(opsets) == 0 {

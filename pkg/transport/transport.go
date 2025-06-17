@@ -118,7 +118,7 @@ func (t *Transport) SignAndTransportGlobalTableRoot(
 			return fmt.Errorf("failed to get operator table updater transactor for chain %d: %w", chainId, err)
 		}
 
-		messageHash, err := updaterTransactor.GetGlobalTableUpdateMessageHash(&bind.CallOpts{}, root, referenceTimestamp)
+		messageHash, err := updaterTransactor.GetGlobalTableUpdateMessageHash(&bind.CallOpts{}, root, referenceTimestamp, uint32(referenceBlockHeight))
 		if err != nil {
 			return fmt.Errorf("failed to get global table update message hash: %w", err)
 		}
@@ -153,6 +153,7 @@ func (t *Transport) SignAndTransportGlobalTableRoot(
 			cert,
 			root,
 			referenceTimestamp,
+			uint32(referenceBlockHeight),
 		)
 		if err != nil {
 			fmt.Printf("Error: %+v\n", err)
