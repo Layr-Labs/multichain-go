@@ -92,13 +92,13 @@ func (a *AWSSMBLSSigner) getSecret() (*bn254.PrivateKey, error) {
 // Returns:
 //   - *bn254.Signature: The BLS signature of the data
 //   - error: An error if key retrieval or signing fails
-func (a *AWSSMBLSSigner) SignBytes(data []byte) (*bn254.Signature, error) {
+func (a *AWSSMBLSSigner) SignBytes(data [32]byte) (*bn254.Signature, error) {
 	pk, err := a.getSecret()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get secret: %w", err)
 	}
 
-	return pk.Sign(data)
+	return pk.SignSolidityCompatible(data)
 }
 
 // GetPublicKey returns the BLS public key corresponding to the private key in AWS Secrets Manager.
