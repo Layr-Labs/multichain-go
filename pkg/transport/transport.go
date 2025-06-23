@@ -316,7 +316,11 @@ func getOperatorTableUpdaterForChainClient(address common.Address, client *ethcl
 }
 
 func (t *Transport) getApkFromPrivateKey() (*IOperatorTableUpdater.BN254G2Point, error) {
-	g2Point := bn254.NewZeroG2Point().AddPublicKey(t.blsSigner.GetPublicKey())
+	pubKey, err := t.blsSigner.GetPublicKey()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get public key: %w", err)
+	}
+	g2Point := bn254.NewZeroG2Point().AddPublicKey(pubKey)
 
 	g2Bytes, err := g2Point.ToPrecompileFormat()
 	if err != nil {
