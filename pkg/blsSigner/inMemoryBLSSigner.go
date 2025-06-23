@@ -63,6 +63,6 @@ func (s *InMemoryBLSSigner) SignBytes(data [32]byte) (*bn254.Signature, error) {
 //
 // Returns:
 //   - *bn254.PublicKey: The BLS public key for signature verification
-func (s *InMemoryBLSSigner) GetPublicKey() *bn254.PublicKey {
-	return s.publicKey
+func (s *InMemoryBLSSigner) GetPublicKey() (*bn254.PublicKey, error) {
+	return s.publicKey, nil
 }

@@ -38,9 +38,10 @@ type AWSSMBLSSigner struct {
 //
 // Returns:
 //   - *AWSSMBLSSigner: A new AWS Secrets Manager BLS signer instance
-func NewAWSSMBLSSigner(logger *zap.Logger) *AWSSMBLSSigner {
+func NewAWSSMBLSSigner(cfg *AWSSMBLSSignerConfig, logger *zap.Logger) *AWSSMBLSSigner {
 	return &AWSSMBLSSigner{
 		logger: logger,
+		config: cfg,
 	}
 }
 
@@ -52,9 +53,10 @@ func NewAWSSMBLSSigner(logger *zap.Logger) *AWSSMBLSSigner {
 //   - *bn254.PrivateKey: The BLS private key from the keystore
 //   - error: An error if retrieval or parsing fails
 func (a *AWSSMBLSSigner) getSecret() (*bn254.PrivateKey, error) {
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(a.config.Region),
-	})
+	sessOptions := session.Options{
+		SharedConfigState: session.SharedConfigEnable, // Enable ~/.aws/config parsing
+	}
+	sess, err := session.NewSessionWithOptions(sessOptions)
 	if err != nil {
 		return nil, err
 	}
