@@ -15,5 +15,5 @@ type IBLSSigner interface {
 
 	// GetPublicKey returns the BLS public key associated with this signer.
 	// This public key can be used to verify signatures created by SignBytes.
-	GetPublicKey() *bn254.PublicKey
+	GetPublicKey() (*bn254.PublicKey, error)
 }
