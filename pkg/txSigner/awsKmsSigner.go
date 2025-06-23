@@ -194,7 +194,7 @@ func getAddressFromKMSKey(kmsClient *kms.KMS, keyID string) (common.Address, err
 	// For AWS KMS ECDSA keys, we need to extract the raw coordinates
 	// Skip the DER wrapper and extract the public key coordinates directly
 	pubKeyBytes := result.PublicKey
-	
+
 	// For secp256k1 keys, AWS KMS returns a DER-encoded key
 	// We need to parse it and extract the raw public key coordinates
 	if len(pubKeyBytes) < 65 {
@@ -245,21 +245,21 @@ func getAddressFromKMSKey(kmsClient *kms.KMS, keyID string) (common.Address, err
 func extractRawPublicKeyFromDER(derBytes []byte) (common.Address, error) {
 	// AWS KMS returns DER-encoded keys in SubjectPublicKeyInfo format
 	// We need to parse the ASN.1 structure to extract the raw public key
-	
+
 	// Simple ASN.1 DER parser for SPKI format
 	// SPKI structure: SEQUENCE { algorithm AlgorithmIdentifier, subjectPublicKey BIT STRING }
 	if len(derBytes) < 10 {
 		return common.Address{}, fmt.Errorf("DER data too short")
 	}
-	
+
 	offset := 0
-	
+
 	// Check for SEQUENCE tag (0x30)
 	if derBytes[offset] != 0x30 {
 		return common.Address{}, fmt.Errorf("expected SEQUENCE tag at start of DER")
 	}
 	offset++
-	
+
 	// Skip sequence length
 	seqLen := int(derBytes[offset])
 	if seqLen > 0x80 {
@@ -272,13 +272,13 @@ func extractRawPublicKeyFromDER(derBytes []byte) (common.Address, error) {
 	} else {
 		offset++
 	}
-	
+
 	// Skip algorithm identifier sequence
 	if offset >= len(derBytes) || derBytes[offset] != 0x30 {
 		return common.Address{}, fmt.Errorf("expected algorithm identifier SEQUENCE")
 	}
 	offset++
-	
+
 	algLen := int(derBytes[offset])
 	if algLen > 0x80 {
 		// Long form length
@@ -295,16 +295,16 @@ func extractRawPublicKeyFromDER(derBytes []byte) (common.Address, error) {
 	} else {
 		offset++
 	}
-	
+
 	// Skip algorithm identifier content
 	offset += algLen
-	
+
 	// Now we should be at the BIT STRING containing the public key
 	if offset >= len(derBytes) || derBytes[offset] != 0x03 {
 		return common.Address{}, fmt.Errorf("expected BIT STRING tag for public key")
 	}
 	offset++
-	
+
 	// Get bit string length
 	bitStringLen := int(derBytes[offset])
 	if bitStringLen > 0x80 {
@@ -322,33 +322,33 @@ func extractRawPublicKeyFromDER(derBytes []byte) (common.Address, error) {
 	} else {
 		offset++
 	}
-	
+
 	// Skip unused bits indicator (should be 0x00)
 	if offset >= len(derBytes) {
 		return common.Address{}, fmt.Errorf("missing unused bits indicator")
 	}
 	offset++
-	
+
 	// Now we should have the raw public key
 	remainingBytes := len(derBytes) - offset
 	if remainingBytes < 65 {
 		return common.Address{}, fmt.Errorf("insufficient bytes for uncompressed public key: have %d, need 65", remainingBytes)
 	}
-	
+
 	// Check for uncompressed key marker (0x04)
 	if derBytes[offset] != 0x04 {
 		return common.Address{}, fmt.Errorf("expected uncompressed public key marker 0x04, got 0x%02x", derBytes[offset])
 	}
-	
+
 	// Extract the 65-byte uncompressed public key
 	publicKeyBytes := derBytes[offset : offset+65]
-	
+
 	// Try to unmarshal it
 	pubKey, err := crypto.UnmarshalPubkey(publicKeyBytes)
 	if err != nil {
 		return common.Address{}, fmt.Errorf("failed to unmarshal extracted public key: %w", err)
 	}
-	
+
 	// Derive Ethereum address
 	address := crypto.PubkeyToAddress(*pubKey)
 	return address, nil
