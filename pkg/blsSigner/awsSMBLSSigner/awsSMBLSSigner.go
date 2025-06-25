@@ -13,6 +13,13 @@ import (
 	"go.uber.org/zap"
 )
 
+type SecretFormat string
+
+const (
+	SecretFormatKeystore  SecretFormat = "keystore"  // Keystore JSON format containing BLS private key
+	SecretFormatHexString SecretFormat = "hexString" // Hex string format containing BLS private key
+)
+
 // AWSSMBLSSignerConfig holds the configuration for AWS Secrets Manager BLS signer.
 // This configuration specifies the AWS region and secret name containing the BLS private key.
 type AWSSMBLSSignerConfig struct {
@@ -20,6 +27,8 @@ type AWSSMBLSSignerConfig struct {
 	Region string
 	// SecretName is the name of the secret in AWS Secrets Manager containing the BLS keystore
 	SecretName string
+
+	SecretFormat SecretFormat
 }
 
 // AWSSMBLSSigner implements IBLSSigner using AWS Secrets Manager for secure key storage.
@@ -38,11 +47,14 @@ type AWSSMBLSSigner struct {
 //
 // Returns:
 //   - *AWSSMBLSSigner: A new AWS Secrets Manager BLS signer instance
-func NewAWSSMBLSSigner(cfg *AWSSMBLSSignerConfig, logger *zap.Logger) *AWSSMBLSSigner {
+func NewAWSSMBLSSigner(cfg *AWSSMBLSSignerConfig, logger *zap.Logger) (*AWSSMBLSSigner, error) {
+	if cfg.SecretFormat == "" {
+		return nil, fmt.Errorf("secret format must be specified in AWSSMBLSSignerConfig")
+	}
 	return &AWSSMBLSSigner{
 		logger: logger,
 		config: cfg,
-	}
+	}, nil
 }
 
 // getSecret retrieves and parses the BLS private key from AWS Secrets Manager.
@@ -77,11 +89,17 @@ func (a *AWSSMBLSSigner) getSecret() (*bn254.PrivateKey, error) {
 	if result.SecretString == nil {
 		return nil, fmt.Errorf("secret string is nil")
 	}
-	ks, err := keystore.ParseKeystoreJSON(*result.SecretString)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse keystore JSON: %w", err)
+	if a.config.SecretFormat == SecretFormatHexString {
+		ks, err := keystore.ParseKeystoreJSON(*result.SecretString)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse keystore JSON: %w", err)
+		}
+		return ks.GetBN254PrivateKey("")
 	}
-	return ks.GetBN254PrivateKey("")
+	if a.config.SecretFormat == SecretFormatHexString {
+		return bn254.NewPrivateKeyFromHexString(*result.SecretString)
+	}
+	return nil, fmt.Errorf("unsupported secret format: %s", a.config.SecretFormat)
 }
 
 // SignBytes signs the provided data using the BLS private key from AWS Secrets Manager.
