@@ -64,12 +64,7 @@ func main() {
 		l.Sugar().Fatalf("Failed to calculate stake table root: %v", err)
 	}
 
-	scheme := bn254.NewScheme()
-	genericPk, err := scheme.NewPrivateKeyFromHexString(blsPrivateKey)
-	if err != nil {
-		l.Sugar().Fatalf("Failed to create BLS private key: %v", err)
-	}
-	pk, err := bn254.NewPrivateKeyFromBytes(genericPk.Bytes())
+	pk, err := bn254.NewPrivateKeyFromHexString(blsPrivateKey)
 	if err != nil {
 		l.Sugar().Fatalf("Failed to convert BLS private key: %v", err)
 	}
