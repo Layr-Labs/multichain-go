@@ -2,6 +2,7 @@ package transport
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/Layr-Labs/crypto-libs/pkg/bn254"
 	"github.com/Layr-Labs/eigenlayer-contracts/pkg/bindings/ICrossChainRegistry"
@@ -11,13 +12,17 @@ import (
 	"github.com/Layr-Labs/multichain-go/pkg/distribution"
 	"github.com/Layr-Labs/multichain-go/pkg/txSigner"
 	"github.com/Layr-Labs/multichain-go/pkg/util"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	merkletree "github.com/wealdtech/go-merkletree/v2"
 	"go.uber.org/zap"
 	"math/big"
+	"time"
 )
 
 type TransportConfig struct {
@@ -59,6 +64,7 @@ func NewTransport(
 var emptyRoot [32]byte
 
 func (t *Transport) SignAndTransportGlobalTableRoot(
+	ctx context.Context,
 	root [32]byte,
 	referenceTimestamp uint32,
 	referenceBlockHeight uint64,
@@ -132,11 +138,14 @@ func (t *Transport) SignAndTransportGlobalTableRoot(
 		if err != nil {
 			return fmt.Errorf("failed to get latest reference timestamp: %w", err)
 		}
-		fmt.Printf("Reference timestamp for global table root: %d\n", previouslyReferencedTimestamp)
-		fmt.Printf("New timestamp: %d\n", referenceTimestamp)
+		t.logger.Sugar().Infow("reference timestamp for global table root",
+			zap.Uint32("previouslyReferencedTimestamp", previouslyReferencedTimestamp),
+			zap.Uint32("newReferenceTimestamp", referenceTimestamp),
+			zap.Uint64("chainId", chainId.Uint64()),
+		)
 
 		// Get transaction options from signer
-		txOpts, err := t.txSigner.GetTransactOpts(context.Background(), chainId)
+		txOpts, err := t.txSigner.GetNoSendTransactOpts(context.Background(), chainId)
 		if err != nil {
 			return fmt.Errorf("failed to get transaction options: %w", err)
 		}
@@ -148,7 +157,7 @@ func (t *Transport) SignAndTransportGlobalTableRoot(
 			Apk:                *apkG2,
 		}
 
-		re, err := updaterTransactor.ConfirmGlobalTableRoot(
+		tx, err := updaterTransactor.ConfirmGlobalTableRoot(
 			txOpts,
 			cert,
 			root,
@@ -156,14 +165,30 @@ func (t *Transport) SignAndTransportGlobalTableRoot(
 			uint32(referenceBlockHeight),
 		)
 		if err != nil {
-			fmt.Printf("Error: %+v\n", err)
-			t.logger.Error("Failed to update BN254 operator table", zap.Error(err))
+			t.logger.Sugar().Errorw("Failed to confirm global table root",
+				zap.Uint64("chainId", chainId.Uint64()),
+				zap.String("chainAddress", addr.String()),
+				zap.Error(err),
+			)
+			t.logger.Error("Failed to confirm global table root", zap.Error(err))
 			return err
 		}
+		r, err := t.estimateGasPriceAndLimitAndSendTx(ctx, txOpts.From, tx, chain.RPCClient, "ConfirmGlobalTableRoot")
+		if err != nil {
+			t.logger.Error("Failed to ensure transaction evaled for global table root",
+				zap.Uint64("chainId", chainId.Uint64()),
+				zap.String("chainAddress", addr.String()),
+				zap.Error(err),
+			)
+			return fmt.Errorf("failed to ensure transaction evaled: %w", err)
+		}
 
-		t.logger.Info("Successfully signed and transported global table root",
-			zap.String("transactionHash", re.Hash().Hex()),
+		t.logger.Info("successfully transported global table root",
+			zap.String("transactionHash", r.TxHash.String()),
+			zap.String("root", hexutil.Encode(root[:])),
+			zap.Uint64("chainId", chainId.Uint64()),
 		)
+		time.Sleep(time.Second * 3) // Sleep to avoid rate limiting issues
 	}
 
 	return nil
@@ -173,6 +198,7 @@ func (t *Transport) SignAndTransportGlobalTableRoot(
 // NOTE: the global root must be updated in the previous block otherwise
 // this function will fail
 func (t *Transport) SignAndTransportAvsStakeTable(
+	ctx context.Context,
 	referenceTimestamp uint32,
 	referenceBlockHeight uint64,
 	operatorSet distribution.OperatorSet,
@@ -181,6 +207,9 @@ func (t *Transport) SignAndTransportAvsStakeTable(
 	dist *distribution.Distribution,
 	ignoreChainIds []*big.Int,
 ) error {
+	t.logger.Sugar().Infow("starting transport of AVS stake table for opset",
+		zap.Any("opset", operatorSet),
+	)
 	// generate the proof for the specific operator set
 	proof, opsetIndex, err := t.generateOperatorSetProof(tree, dist, operatorSet)
 	if err != nil {
@@ -195,7 +224,7 @@ func (t *Transport) SignAndTransportAvsStakeTable(
 	}
 
 	t.logger.Info("Signing and transporting AVS stake table",
-		zap.String("avsAddress", operatorSet.Avs.String()),
+		zap.Any("opset", operatorSet),
 		zap.String("root", hexutil.Encode(root[:])),
 		zap.Uint64("blockHeight", referenceBlockHeight),
 	)
@@ -207,11 +236,17 @@ func (t *Transport) SignAndTransportAvsStakeTable(
 
 	// transport the stake table to each supported destination chain
 	for i, chainId := range chainIds {
+		t.logger.Sugar().Infow("Processing chain for AVS stake table transport",
+			zap.Any("opset", operatorSet),
+			zap.Uint64("chainId", chainId.Uint64()),
+			zap.String("chainAddress", addresses[i].String()),
+		)
 		ignoredChainId := util.Find(ignoreChainIds, func(id *big.Int) bool {
 			return chainId.Cmp(id) == 0
 		})
 		if ignoredChainId != nil {
 			t.logger.Sugar().Infow("Skipping transport for ignored chain",
+				zap.Any("opset", operatorSet),
 				zap.Uint64("chainId", chainId.Uint64()),
 				zap.String("chainAddress", addresses[i].String()),
 			)
@@ -219,7 +254,7 @@ func (t *Transport) SignAndTransportAvsStakeTable(
 		}
 		addr := addresses[i]
 		// Get transaction options from signer
-		txOpts, err := t.txSigner.GetTransactOpts(context.Background(), chainId)
+		txOpts, err := t.txSigner.GetNoSendTransactOpts(context.Background(), chainId)
 		if err != nil {
 			return fmt.Errorf("failed to get transaction options: %w", err)
 		}
@@ -229,6 +264,7 @@ func (t *Transport) SignAndTransportAvsStakeTable(
 		}
 
 		t.logger.Info("Transporting AVS stake table to chain",
+			zap.Any("opset", operatorSet),
 			zap.Uint64("chainId", chainId.Uint64()),
 			zap.String("address", addr.String()),
 		)
@@ -237,6 +273,7 @@ func (t *Transport) SignAndTransportAvsStakeTable(
 			return fmt.Errorf("failed to get operator table updater transactor for chain %d: %w", chainId, err)
 		}
 		t.logger.Sugar().Debugw("Using operator table updater transactor",
+			zap.Any("opset", operatorSet),
 			zap.Uint64("chainId", chainId.Uint64()),
 			zap.Uint64("referenceBlockHeight", referenceBlockHeight),
 			zap.Uint32("referenceTimestamp", referenceTimestamp),
@@ -254,11 +291,27 @@ func (t *Transport) SignAndTransportAvsStakeTable(
 			tableInfo,
 		)
 		if err != nil {
-			t.logger.Error("Failed to update AVS stake table", zap.Error(err))
+			t.logger.Error("Failed to update AVS stake table",
+				zap.String("avsAddress", operatorSet.Avs.String()),
+				zap.Uint64("opsetIndex", opsetIndex),
+				zap.Uint64("chainId", chainId.Uint64()),
+				zap.Error(err),
+			)
 			return fmt.Errorf("failed to update AVS stake table: %w", err)
 		}
-		t.logger.Info("Successfully signed and transported AVS stake table",
-			zap.String("transactionHash", tx.Hash().Hex()),
+		r, err := t.estimateGasPriceAndLimitAndSendTx(ctx, txOpts.From, tx, chain.RPCClient, "UpdateOperatorTable")
+		if err != nil {
+			t.logger.Error("Failed to ensure transaction evaled for AVS stake table",
+				zap.String("avsAddress", operatorSet.Avs.String()),
+				zap.Uint64("opsetIndex", opsetIndex),
+				zap.Uint64("chainId", chainId.Uint64()),
+				zap.Error(err),
+			)
+			return fmt.Errorf("failed to ensure transaction evaled: %w", err)
+		}
+		t.logger.Info("Successfully transported AVS stake table",
+			zap.Any("opset", operatorSet),
+			zap.String("transactionHash", r.TxHash.String()),
 			zap.String("avsAddress", operatorSet.Avs.String()),
 			zap.String("root", hexutil.Encode(root[:])),
 			zap.Uint64("blockHeight", referenceBlockHeight),
@@ -267,6 +320,106 @@ func (t *Transport) SignAndTransportAvsStakeTable(
 		)
 	}
 	return nil
+}
+
+func (t *Transport) ensureTransactionEvaled(ctx context.Context, rpcClient *ethclient.Client, tx *types.Transaction, tag string) (*types.Receipt, error) {
+	t.logger.Sugar().Infow("ensureTransactionEvaled entered")
+
+	receipt, err := bind.WaitMined(ctx, rpcClient, tx)
+	if err != nil {
+		return nil, fmt.Errorf("ensureTransactionEvaled: failed to wait for transaction (%s) to mine: %w", tag, err)
+	}
+	if receipt.Status != 1 {
+		t.logger.Sugar().Errorf("ensureTransactionEvaled: transaction (%s) failed: %v", tag, receipt)
+		return nil, errors.New("ErrTransactionFailed")
+	}
+	t.logger.Sugar().Infof("ensureTransactionEvaled: transaction (%s) succeeded: %v", tag, receipt.TxHash.Hex())
+	return receipt, nil
+}
+
+var (
+	FallbackGasTipCap = big.NewInt(15000000000)
+)
+
+func addGasBuffer(gasLimit uint64) uint64 {
+	return 6 * gasLimit / 5 // add 20% buffer to gas limit
+}
+
+func (t *Transport) estimateGasPriceAndLimitAndSendTx(
+	ctx context.Context,
+	fromAddress common.Address,
+	tx *types.Transaction,
+	rpcClient *ethclient.Client,
+	tag string,
+) (*types.Receipt, error) {
+
+	gasTipCap, err := rpcClient.SuggestGasTipCap(ctx)
+	if err != nil {
+		// If the transaction failed because the backend does not support
+		// eth_maxPriorityFeePerGas, fallback to using the default constant.
+		// Currently Alchemy is the only backend provider that exposes this
+		// method, so in the event their API is unreachable we can fallback to a
+		// degraded mode of operation. This also applies to our test
+		// environments, as hardhat doesn't support the query either.
+		t.logger.Sugar().Debugw("EstimateGasPriceAndLimitAndSendTx: cannot get gasTipCap",
+			zap.String("error", err.Error()),
+		)
+
+		gasTipCap = FallbackGasTipCap
+	}
+
+	header, err := rpcClient.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	// get header basefee * 3/2
+	overestimatedBasefee := new(big.Int).Div(new(big.Int).Mul(header.BaseFee, big.NewInt(3)), big.NewInt(2))
+
+	gasFeeCap := new(big.Int).Add(overestimatedBasefee, gasTipCap)
+
+	// The estimated gas limits performed by RawTransact fail semi-regularly
+	// with out of gas exceptions. To remedy this we extract the internal calls
+	// to perform gas price/gas limit estimation here and add a buffer to
+	// account for any network variability.
+	gasLimit, err := rpcClient.EstimateGas(ctx, ethereum.CallMsg{
+		From:      fromAddress,
+		To:        tx.To(),
+		GasTipCap: gasTipCap,
+		GasFeeCap: gasFeeCap,
+		Value:     nil,
+		Data:      tx.Data(),
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	opts, err := t.txSigner.GetTransactOpts(ctx, tx.ChainId())
+	if err != nil {
+		return nil, fmt.Errorf("EstimateGasPriceAndLimitAndSendTx: cannot create transactOpts: %w", err)
+	}
+	opts.Nonce = new(big.Int).SetUint64(tx.Nonce())
+	opts.GasTipCap = gasTipCap
+	opts.GasFeeCap = gasFeeCap
+	opts.GasLimit = addGasBuffer(gasLimit)
+
+	contract := bind.NewBoundContract(*tx.To(), abi.ABI{}, rpcClient, rpcClient, rpcClient)
+
+	t.logger.Sugar().Infof("EstimateGasPriceAndLimitAndSendTx: sending txn (%s) with gasTipCap=%v gasFeeCap=%v gasLimit=%v", tag, gasTipCap, gasFeeCap, opts.GasLimit)
+
+	tx, err = contract.RawTransact(opts, tx.Data())
+	if err != nil {
+		return nil, fmt.Errorf("EstimateGasPriceAndLimitAndSendTx: failed to send txn (%s): %w", tag, err)
+	}
+
+	t.logger.Sugar().Infof("EstimateGasPriceAndLimitAndSendTx: sent txn (%s) with hash=%s", tag, tx.Hash().Hex())
+
+	receipt, err := t.ensureTransactionEvaled(ctx, rpcClient, tx, tag)
+	if err != nil {
+		return nil, err
+	}
+
+	return receipt, err
 }
 
 func (t *Transport) generateOperatorSetProof(tree *merkletree.MerkleTree, dist *distribution.Distribution, operatorSet distribution.OperatorSet) ([]byte, uint64, error) {

@@ -67,6 +67,16 @@ func (p *PrivateKeySigner) GetTransactOpts(ctx context.Context, chainID *big.Int
 	return auth, nil
 }
 
+func (p *PrivateKeySigner) GetNoSendTransactOpts(ctx context.Context, chainID *big.Int) (*bind.TransactOpts, error) {
+	auth, err := p.GetTransactOpts(ctx, chainID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get transact opts: %w", err)
+	}
+	auth.NoSend = true
+
+	return auth, nil
+}
+
 // GetAddress returns the Ethereum address associated with this private key.
 // This method implements the ITransactionSigner interface.
 //
