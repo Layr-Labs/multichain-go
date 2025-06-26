@@ -132,8 +132,11 @@ func (t *Transport) SignAndTransportGlobalTableRoot(
 		if err != nil {
 			return fmt.Errorf("failed to get latest reference timestamp: %w", err)
 		}
-		fmt.Printf("Reference timestamp for global table root: %d\n", previouslyReferencedTimestamp)
-		fmt.Printf("New timestamp: %d\n", referenceTimestamp)
+		t.logger.Sugar().Infow("reference timestamp for global table root",
+			zap.Uint32("previouslyReferencedTimestamp", previouslyReferencedTimestamp),
+			zap.Uint32("newReferenceTimestamp", referenceTimestamp),
+			zap.Uint64("chainId", chainId.Uint64()),
+		)
 
 		// Get transaction options from signer
 		txOpts, err := t.txSigner.GetTransactOpts(context.Background(), chainId)
@@ -156,13 +159,18 @@ func (t *Transport) SignAndTransportGlobalTableRoot(
 			uint32(referenceBlockHeight),
 		)
 		if err != nil {
-			fmt.Printf("Error: %+v\n", err)
+			t.logger.Sugar().Errorw("Failed to confirm global table root",
+				zap.Uint64("chainId", chainId.Uint64()),
+				zap.String("chainAddress", addr.String()),
+			)
 			t.logger.Error("Failed to update BN254 operator table", zap.Error(err))
 			return err
 		}
 
 		t.logger.Info("Successfully signed and transported global table root",
 			zap.String("transactionHash", re.Hash().Hex()),
+			zap.String("root", hexutil.Encode(root[:])),
+			zap.Uint64("chainId", chainId.Uint64()),
 		)
 	}
 
