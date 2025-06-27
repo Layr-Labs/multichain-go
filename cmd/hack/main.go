@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
 	"math/big"
-	"time"
 )
 
 var (
@@ -40,6 +39,14 @@ func main() {
 	holeskyClient, err := cm.GetChainForId(holeskyConfig.ChainID)
 	if err != nil {
 		l.Sugar().Fatalf("Failed to get chain for ID %d: %v", holeskyConfig.ChainID, err)
+	}
+
+	baseSepoliaConfig := &chainManager.ChainConfig{
+		ChainID: 84532,
+		RPCUrl:  "https://base-sepolia-rpc.publicnode.com",
+	}
+	if err := cm.AddChain(baseSepoliaConfig); err != nil {
+		l.Sugar().Fatalf("Failed to add chain: %v", err)
 	}
 
 	txSign, err := txSigner.NewPrivateKeySigner(transporterPrivateKey)
@@ -91,6 +98,7 @@ func main() {
 	referenceTimestamp := uint32(block.Time())
 
 	err = stakeTransport.SignAndTransportGlobalTableRoot(
+		ctx,
 		root,
 		referenceTimestamp,
 		block.NumberU64(),
@@ -99,8 +107,7 @@ func main() {
 	if err != nil {
 		l.Sugar().Fatalf("Failed to sign and transport global table root: %v", err)
 	}
-	l.Sugar().Infow("Successfully signed and transported global table root, sleeping for 15 seconds")
-	time.Sleep(30 * time.Second)
+	l.Sugar().Infow("Successfully signed and transported global table root to all chains")
 
 	opsets := dist.GetOperatorSets()
 	if len(opsets) == 0 {
@@ -109,6 +116,7 @@ func main() {
 	}
 	for _, opset := range opsets {
 		err = stakeTransport.SignAndTransportAvsStakeTable(
+			ctx,
 			referenceTimestamp,
 			block.NumberU64(),
 			opset,

@@ -28,6 +28,8 @@ type ITransactionSigner interface {
 	//   - error: An error if transaction options cannot be created
 	GetTransactOpts(ctx context.Context, chainID *big.Int) (*bind.TransactOpts, error)
 
+	GetNoSendTransactOpts(ctx context.Context, chainID *big.Int) (*bind.TransactOpts, error)
+
 	// GetAddress returns the Ethereum address associated with this signer.
 	// This address will be used as the 'from' field in transactions.
 	//
