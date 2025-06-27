@@ -70,7 +70,7 @@ func (c *StakeTableCalculator) CalculateStakeTableRoot(
 	}
 
 	c.logger.Sugar().Infow("Fetched active generation reservations",
-		zap.Int("opsetCount", len(opsetsWithCalculators)),
+		zap.Any("opsets", opsetsWithCalculators),
 		zap.Uint64("referenceBlockNumber", referenceBlockNumber),
 	)
 
