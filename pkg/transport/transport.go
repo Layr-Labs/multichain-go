@@ -224,7 +224,7 @@ func (t *Transport) SignAndTransportAvsStakeTable(
 	}
 
 	t.logger.Info("Signing and transporting AVS stake table",
-		zap.String("avsAddress", operatorSet.Avs.String()),
+		zap.Any("opset", operatorSet),
 		zap.String("root", hexutil.Encode(root[:])),
 		zap.Uint64("blockHeight", referenceBlockHeight),
 	)
@@ -237,15 +237,16 @@ func (t *Transport) SignAndTransportAvsStakeTable(
 	// transport the stake table to each supported destination chain
 	for i, chainId := range chainIds {
 		t.logger.Sugar().Infow("Processing chain for AVS stake table transport",
+			zap.Any("opset", operatorSet),
 			zap.Uint64("chainId", chainId.Uint64()),
 			zap.String("chainAddress", addresses[i].String()),
-			zap.Any("opset", operatorSet),
 		)
 		ignoredChainId := util.Find(ignoreChainIds, func(id *big.Int) bool {
 			return chainId.Cmp(id) == 0
 		})
 		if ignoredChainId != nil {
 			t.logger.Sugar().Infow("Skipping transport for ignored chain",
+				zap.Any("opset", operatorSet),
 				zap.Uint64("chainId", chainId.Uint64()),
 				zap.String("chainAddress", addresses[i].String()),
 			)
@@ -263,6 +264,7 @@ func (t *Transport) SignAndTransportAvsStakeTable(
 		}
 
 		t.logger.Info("Transporting AVS stake table to chain",
+			zap.Any("opset", operatorSet),
 			zap.Uint64("chainId", chainId.Uint64()),
 			zap.String("address", addr.String()),
 		)
@@ -271,6 +273,7 @@ func (t *Transport) SignAndTransportAvsStakeTable(
 			return fmt.Errorf("failed to get operator table updater transactor for chain %d: %w", chainId, err)
 		}
 		t.logger.Sugar().Debugw("Using operator table updater transactor",
+			zap.Any("opset", operatorSet),
 			zap.Uint64("chainId", chainId.Uint64()),
 			zap.Uint64("referenceBlockHeight", referenceBlockHeight),
 			zap.Uint32("referenceTimestamp", referenceTimestamp),
@@ -307,6 +310,7 @@ func (t *Transport) SignAndTransportAvsStakeTable(
 			return fmt.Errorf("failed to ensure transaction evaled: %w", err)
 		}
 		t.logger.Info("Successfully transported AVS stake table",
+			zap.Any("opset", operatorSet),
 			zap.String("transactionHash", r.TxHash.String()),
 			zap.String("avsAddress", operatorSet.Avs.String()),
 			zap.String("root", hexutil.Encode(root[:])),
