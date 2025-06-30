@@ -134,7 +134,7 @@ func (t *Transport) SignAndTransportGlobalTableRoot(
 			return err
 		}
 
-		previouslyReferencedTimestamp, err := updaterTransactor.GetGlobalConfirmerSetReferenceTimestamp(&bind.CallOpts{})
+		previouslyReferencedTimestamp, err := updaterTransactor.GetGeneratorReferenceTimestamp(&bind.CallOpts{})
 		if err != nil {
 			return fmt.Errorf("failed to get latest reference timestamp: %w", err)
 		}
