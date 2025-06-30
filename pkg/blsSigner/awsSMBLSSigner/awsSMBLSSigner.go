@@ -89,7 +89,7 @@ func (a *AWSSMBLSSigner) getSecret() (*bn254.PrivateKey, error) {
 	if result.SecretString == nil {
 		return nil, fmt.Errorf("secret string is nil")
 	}
-	if a.config.SecretFormat == SecretFormatHexString {
+	if a.config.SecretFormat == SecretFormatKeystore {
 		ks, err := keystore.ParseKeystoreJSON(*result.SecretString)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse keystore JSON: %w", err)

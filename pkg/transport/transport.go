@@ -164,6 +164,13 @@ func (t *Transport) SignAndTransportGlobalTableRoot(
 			referenceTimestamp,
 			uint32(referenceBlockHeight),
 		)
+		t.logger.Sugar().Infow("Created transaction for global table root",
+			zap.Uint64("chainId", chainId.Uint64()),
+			zap.Uint64("referenceBlockHeight", referenceBlockHeight),
+			zap.String("chainAddress", addr.String()),
+			zap.String("from", txOpts.From.String()),
+		)
+
 		if err != nil {
 			t.logger.Sugar().Errorw("Failed to confirm global table root",
 				zap.Uint64("chainId", chainId.Uint64()),
