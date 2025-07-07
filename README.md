@@ -222,7 +222,7 @@ All flags can be set using environment variables:
 
 ```bash
 go run ./cmd/transporter calculate \
-  --cross-chain-registry "0x0022d2014901F2AFBF5610dDFcd26afe2a65Ca6F" \
+  --cross-chain-registry "0xe850D8A178777b483D37fD492a476e3E6004C816" \
   --chains "17000:https://ethereum-holesky-rpc.publicnode.com" \
   --tx-private-key "0x..." \
   --bls-private-key "0x..." \
@@ -233,7 +233,7 @@ go run ./cmd/transporter calculate \
 
 ```bash
 go run ./cmd/transporter transport \
-  --cross-chain-registry "0x0022d2014901F2AFBF5610dDFcd26afe2a65Ca6F" \
+  --cross-chain-registry "0xe850D8A178777b483D37fD492a476e3E6004C816" \
   --chains "17000:https://ethereum-holesky-rpc.publicnode.com" \
   --tx-private-key "0x..." \
   --bls-private-key "0x..." \
@@ -245,7 +245,7 @@ go run ./cmd/transporter transport \
 
 ```bash
 go run ./cmd/transporter transport \
-  --cross-chain-registry "0x0022d2014901F2AFBF5610dDFcd26afe2a65Ca6F" \
+  --cross-chain-registry "0xe850D8A178777b483D37fD492a476e3E6004C816" \
   --chains "17000:https://ethereum-holesky-rpc.publicnode.com" \
   --tx-aws-kms-key-id "your-kms-key-id" \
   --tx-aws-region "us-east-1" \
@@ -257,7 +257,7 @@ go run ./cmd/transporter transport \
 
 ```bash
 go run ./cmd/transporter transport \
-  --cross-chain-registry "0x0022d2014901F2AFBF5610dDFcd26afe2a65Ca6F" \
+  --cross-chain-registry "0xe850D8A178777b483D37fD492a476e3E6004C816" \
   --chains "17000:https://ethereum-holesky-rpc.publicnode.com" \
   --chains "1:https://eth-mainnet.alchemyapi.io/v2/your-api-key" \
   --tx-private-key "0x..." \
@@ -268,7 +268,7 @@ go run ./cmd/transporter transport \
 #### Environment Variable Configuration
 
 ```bash
-export CROSS_CHAIN_REGISTRY_ADDRESS="0x0022d2014901F2AFBF5610dDFcd26afe2a65Ca6F"
+export CROSS_CHAIN_REGISTRY_ADDRESS="0xe850D8A178777b483D37fD492a476e3E6004C816"
 export CHAINS="17000:https://ethereum-holesky-rpc.publicnode.com"
 export TX_PRIVATE_KEY="0x..."
 export BLS_PRIVATE_KEY="0x..."
@@ -281,7 +281,7 @@ go run ./cmd/transporter calculate
 
 ```bash
 go run ./cmd/transporter transport \
-  --cross-chain-registry "0x0022d2014901F2AFBF5610dDFcd26afe2a65Ca6F" \
+  --cross-chain-registry "0xe850D8A178777b483D37fD492a476e3E6004C816" \
   --chains "17000:https://ethereum-holesky-rpc.publicnode.com" \
   --tx-private-key "0x..." \
   --bls-private-key "0x..." \

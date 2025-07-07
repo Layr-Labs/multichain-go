@@ -318,6 +318,7 @@ func (t *Transport) SignAndTransportAvsStakeTable(
 		}
 		t.logger.Info("Successfully transported AVS stake table",
 			zap.Any("opset", operatorSet),
+			zap.Uint32("referenceTimestamp", referenceTimestamp),
 			zap.String("transactionHash", r.TxHash.String()),
 			zap.String("avsAddress", operatorSet.Avs.String()),
 			zap.String("root", hexutil.Encode(root[:])),

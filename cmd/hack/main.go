@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	crossChainRegistryAddress = common.HexToAddress("0x0022d2014901F2AFBF5610dDFcd26afe2a65Ca6F")
+	crossChainRegistryAddress = common.HexToAddress("0xe850D8A178777b483D37fD492a476e3E6004C816")
 	transporterPrivateKey     = "<key>"
 	blsPrivateKey             = "<key>"
 )
@@ -29,16 +29,16 @@ func main() {
 
 	cm := chainManager.NewChainManager()
 
-	holeskyConfig := &chainManager.ChainConfig{
-		ChainID: 17000,
-		RPCUrl:  "https://ethereum-holesky-rpc.publicnode.com",
+	sepoliaConfig := &chainManager.ChainConfig{
+		ChainID: 11155111,
+		RPCUrl:  "https://ethereum-sepolia-rpc.publicnode.com",
 	}
-	if err := cm.AddChain(holeskyConfig); err != nil {
+	if err := cm.AddChain(sepoliaConfig); err != nil {
 		l.Sugar().Fatalf("Failed to add chain: %v", err)
 	}
-	holeskyClient, err := cm.GetChainForId(holeskyConfig.ChainID)
+	sepoliaClient, err := cm.GetChainForId(sepoliaConfig.ChainID)
 	if err != nil {
-		l.Sugar().Fatalf("Failed to get chain for ID %d: %v", holeskyConfig.ChainID, err)
+		l.Sugar().Fatalf("Failed to get chain for ID %d: %v", sepoliaConfig.ChainID, err)
 	}
 
 	baseSepoliaConfig := &chainManager.ChainConfig{
@@ -56,12 +56,12 @@ func main() {
 
 	tableCalc, err := operatorTableCalculator.NewStakeTableRootCalculator(&operatorTableCalculator.Config{
 		CrossChainRegistryAddress: crossChainRegistryAddress,
-	}, holeskyClient.RPCClient, l)
+	}, sepoliaClient.RPCClient, l)
 	if err != nil {
 		l.Sugar().Fatalf("Failed to create StakeTableRootCalculator: %v", err)
 	}
 
-	block, err := holeskyClient.RPCClient.BlockByNumber(ctx, big.NewInt(int64(rpc.FinalizedBlockNumber)))
+	block, err := sepoliaClient.RPCClient.BlockByNumber(ctx, big.NewInt(int64(rpc.FinalizedBlockNumber)))
 	if err != nil {
 		l.Sugar().Fatalf("Failed to get block number: %v", err)
 	}
@@ -85,7 +85,7 @@ func main() {
 		&transport.TransportConfig{
 			L1CrossChainRegistryAddress: crossChainRegistryAddress,
 		},
-		holeskyClient.RPCClient,
+		sepoliaClient.RPCClient,
 		inMemSigner,
 		txSign,
 		cm,

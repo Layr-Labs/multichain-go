@@ -4,6 +4,8 @@ github.com/Layr-Labs/crypto-libs v0.0.3 h1:n5jcvmaBLcjhxL7hcnL8ar0MiycPl6s3OMsuU
 github.com/Layr-Labs/crypto-libs v0.0.3/go.mod h1:PWjHsuxgk5MNopPr3QLhpP/RJerbjh98qCCSivnVPHE=
 github.com/Layr-Labs/eigenlayer-contracts v1.6.0-rc.0.0.20250617173554-726a6f70cc0d h1:/bN2ReZmFR1qynnKtfO2fDTDTLHqIAAKmdjD24TtHFU=
 github.com/Layr-Labs/eigenlayer-contracts v1.6.0-rc.0.0.20250617173554-726a6f70cc0d/go.mod h1:Ie8YE3EQkTHqG6/tnUS0He7/UPMkXPo/3OFXwSy0iRo=
+github.com/Layr-Labs/eigenlayer-contracts v1.6.0-rc.0.0.20250701194501-5f84759e1085 h1:Ad9RQAfL7vGJzAVgAR2rZFPYrxtsng9pCXGXZydsg7M=
+github.com/Layr-Labs/eigenlayer-contracts v1.6.0-rc.0.0.20250701194501-5f84759e1085/go.mod h1:Ie8YE3EQkTHqG6/tnUS0He7/UPMkXPo/3OFXwSy0iRo=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
 github.com/StackExchange/wmi v1.2.1 h1:VIkavFPXSjcnS+O8yTq7NI32k0R5Aj+v39y29VYDOSA=
