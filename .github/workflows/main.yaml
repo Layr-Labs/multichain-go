@@ -46,8 +46,10 @@ jobs:
             proxy.golang.org:443
             storage.googleapis.com:443
             sum.golang.org:443
+            
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        
       - name: Set up Go
         uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34
         with:
@@ -57,6 +59,7 @@ jobs:
           make deps
           export PATH=$PATH:$(go env GOPATH)/bin
           make lint
+          
   test:
     runs-on: ubuntu-latest
     steps:
