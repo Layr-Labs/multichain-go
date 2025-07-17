@@ -10,10 +10,15 @@ jobs:
   gofmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Harden Runner
+        uses: step-security/harden-runner@c6295a65d1254861815972266d5933fd6e532bdf # v2.11.1
+        with:
+          egress-policy: audit
+          
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34
         with:
           go-version: '1.23'
       - name: Check formatting
@@ -25,12 +30,12 @@ jobs:
           fi
           echo "All files are formatted correctly."
   lint:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34
         with:
           go-version: '1.23'
       - name: Run linter
@@ -39,12 +44,12 @@ jobs:
           export PATH=$PATH:$(go env GOPATH)/bin
           make lint
   test:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34
         with:
           go-version: '1.23'
       - name: Run tests
