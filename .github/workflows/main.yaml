@@ -6,6 +6,9 @@ on:
       - "*"
     tags:
       - 'v*'
+  pull_request:
+    branches: [ "master" ]
+      
 jobs:
   gofmt:
     runs-on: ubuntu-latest
