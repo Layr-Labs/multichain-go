@@ -103,7 +103,11 @@ func (c *StakeTableCalculator) CalculateStakeTableRoot(
 			BlockNumber: new(big.Int).SetUint64(referenceBlockNumber),
 		}, opsetsWithCalculators[i])
 		if err != nil {
-			return zeroRoot, nil, nil, fmt.Errorf("failed to calculate operator table bytes for opset %d: %w", opset, err)
+			c.logger.Sugar().Errorw("Failed to calculate operator table bytes",
+				zap.Uint32("opsetId", opset.Id),
+				zap.String("opsetAvs", opset.Avs.String()),
+			)
+			continue
 		}
 		c.logger.Sugar().Infow("Got operator table bytes for opset",
 			zap.Uint32("opsetId", opset.Id),
