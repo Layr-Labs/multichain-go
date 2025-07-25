@@ -7,6 +7,7 @@ package operatorTableCalculator
 import (
 	"context"
 	"fmt"
+	"github.com/Layr-Labs/multichain-go/pkg/chainManager"
 	"github.com/Layr-Labs/multichain-go/pkg/distribution"
 	"github.com/Layr-Labs/multichain-go/pkg/util"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -16,7 +17,6 @@ import (
 	"github.com/Layr-Labs/eigenlayer-contracts/pkg/bindings/ICrossChainRegistry"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient"
 	merkletree "github.com/wealdtech/go-merkletree/v2"
 	"github.com/wealdtech/go-merkletree/v2/keccak256"
 )
@@ -29,13 +29,13 @@ type Config struct {
 // StakeTableCalculator is responsible for calculating the cloud operator table root.
 type StakeTableCalculator struct {
 	config                   *Config
-	ethClient                *ethclient.Client
+	ethClient                chainManager.EthClientInterface
 	logger                   *zap.Logger
 	crossChainRegistryCaller *ICrossChainRegistry.ICrossChainRegistryCaller
 }
 
 // NewStakeTableRootCalculator creates a new instance of StakeTableCalculator.
-func NewStakeTableRootCalculator(cfg *Config, ec *ethclient.Client, l *zap.Logger) (*StakeTableCalculator, error) {
+func NewStakeTableRootCalculator(cfg *Config, ec chainManager.EthClientInterface, l *zap.Logger) (*StakeTableCalculator, error) {
 	registryCaller, err := ICrossChainRegistry.NewICrossChainRegistryCaller(cfg.CrossChainRegistryAddress, ec)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bind NewICrossChainRegistryCaller: %w", err)
@@ -103,7 +103,11 @@ func (c *StakeTableCalculator) CalculateStakeTableRoot(
 			BlockNumber: new(big.Int).SetUint64(referenceBlockNumber),
 		}, opsetsWithCalculators[i])
 		if err != nil {
-			return zeroRoot, nil, nil, fmt.Errorf("failed to calculate operator table bytes for opset %d: %w", opset, err)
+			c.logger.Sugar().Errorw("Failed to calculate operator table bytes",
+				zap.Uint32("opsetId", opset.Id),
+				zap.String("opsetAvs", opset.Avs.String()),
+			)
+			continue
 		}
 		c.logger.Sugar().Infow("Got operator table bytes for opset",
 			zap.Uint32("opsetId", opset.Id),
