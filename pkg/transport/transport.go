@@ -18,7 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 	merkletree "github.com/wealdtech/go-merkletree/v2"
 	"go.uber.org/zap"
 	"math/big"
@@ -40,7 +39,7 @@ type Transport struct {
 
 func NewTransport(
 	cfg *TransportConfig,
-	client *ethclient.Client,
+	client chainManager.EthClientInterface,
 	blsSig blsSigner.IBLSSigner,
 	txSig txSigner.ITransactionSigner,
 	cm chainManager.IChainManager,
@@ -330,7 +329,7 @@ func (t *Transport) SignAndTransportAvsStakeTable(
 	return nil
 }
 
-func (t *Transport) ensureTransactionEvaled(ctx context.Context, rpcClient *ethclient.Client, tx *types.Transaction, tag string) (*types.Receipt, error) {
+func (t *Transport) ensureTransactionEvaled(ctx context.Context, rpcClient chainManager.EthClientInterface, tx *types.Transaction, tag string) (*types.Receipt, error) {
 	t.logger.Sugar().Infow("ensureTransactionEvaled entered")
 
 	receipt, err := bind.WaitMined(ctx, rpcClient, tx)
@@ -357,7 +356,7 @@ func (t *Transport) estimateGasPriceAndLimitAndSendTx(
 	ctx context.Context,
 	fromAddress common.Address,
 	tx *types.Transaction,
-	rpcClient *ethclient.Client,
+	rpcClient chainManager.EthClientInterface,
 	tag string,
 ) (*types.Receipt, error) {
 
@@ -468,7 +467,7 @@ func (t *Transport) generateOperatorSetProof(tree *merkletree.MerkleTree, dist *
 	return proofBytes, opsetIndex, nil
 }
 
-func getOperatorTableUpdaterForChainClient(address common.Address, client *ethclient.Client) (*IOperatorTableUpdater.IOperatorTableUpdater, error) {
+func getOperatorTableUpdaterForChainClient(address common.Address, client chainManager.EthClientInterface) (*IOperatorTableUpdater.IOperatorTableUpdater, error) {
 	transactor, err := IOperatorTableUpdater.NewIOperatorTableUpdater(address, client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bind NewIOperatorTableUpdaterTransactor: %w", err)
