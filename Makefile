@@ -10,6 +10,7 @@ GO_FLAGS=
 deps: deps/go
 	git submodule update --init --recursive
 	$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61.0
+	$(GO) install github.com/vektra/mockery/v2@v2.42.3
 
 .PHONY: deps/go
 deps/go:
@@ -54,3 +55,7 @@ fmtcheck:
 		exit 1; \
 	fi
 
+.PHONY: mocks
+mocks:
+	@echo "Generating mocks..."
+	mockery --all --inpackage --case camel

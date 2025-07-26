@@ -38,8 +38,8 @@ type ChainConfig struct {
 // It contains both the configuration and the active RPC client connection.
 type Chain struct {
 	config *ChainConfig
-	// RPCClient is the active Ethereum client connection for this chain
-	RPCClient *ethclient.Client
+	// RPCClient is the active client connection for this chain
+	RPCClient EthClientInterface
 }
 
 // ChainManager implements IChainManager and manages multiple blockchain connections.
