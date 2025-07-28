@@ -94,7 +94,6 @@ func (cm *ChainManager) AddChain(cfg *ChainConfig) error {
 //   - error: ErrChainNotFound if the chain ID is not registered
 func (cm *ChainManager) GetChainForId(chainId uint64) (*Chain, error) {
 	chain, exists := cm.Chains[chainId]
-	fmt.Printf("Chain: %+v - exists: %+v - chainId %+v\n", chain, exists, chainId)
 	if !exists {
 		return nil, ErrChainNotFound
 	}
