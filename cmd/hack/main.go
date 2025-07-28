@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	crossChainRegistryAddress = common.HexToAddress("0xe850D8A178777b483D37fD492a476e3E6004C816")
+	crossChainRegistryAddress = common.HexToAddress("0x287381b1570d9048c4b4c7ec94d21ddb8aa1352a")
 	transporterPrivateKey     = "<key>"
 	blsPrivateKey             = "<key>"
 )
