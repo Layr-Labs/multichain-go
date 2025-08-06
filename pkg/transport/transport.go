@@ -171,22 +171,21 @@ func (t *Transport) SignAndTransportGlobalTableRoot(
 		)
 
 		if err != nil {
-			t.logger.Sugar().Errorw("Failed to confirm global table root",
+			t.logger.Sugar().Errorw("Failed to confirm global table root, skipping chain",
 				zap.Uint64("chainId", chainId.Uint64()),
 				zap.String("chainAddress", addr.String()),
 				zap.Error(err),
 			)
-			t.logger.Error("Failed to confirm global table root", zap.Error(err))
-			return err
+			continue
 		}
 		r, err := t.estimateGasPriceAndLimitAndSendTx(ctx, txOpts.From, tx, chain.RPCClient, "ConfirmGlobalTableRoot")
 		if err != nil {
-			t.logger.Error("Failed to ensure transaction evaled for global table root",
+			t.logger.Error("Failed to ensure transaction evaled for global table root, skipping chain",
 				zap.Uint64("chainId", chainId.Uint64()),
 				zap.String("chainAddress", addr.String()),
 				zap.Error(err),
 			)
-			return fmt.Errorf("failed to ensure transaction evaled: %w", err)
+			continue
 		}
 
 		t.logger.Info("successfully transported global table root",
@@ -297,23 +296,23 @@ func (t *Transport) SignAndTransportAvsStakeTable(
 			tableInfo,
 		)
 		if err != nil {
-			t.logger.Error("Failed to update AVS stake table",
+			t.logger.Error("Failed to update AVS stake table, skipping chain",
 				zap.String("avsAddress", operatorSet.Avs.String()),
 				zap.Uint64("opsetIndex", opsetIndex),
 				zap.Uint64("chainId", chainId.Uint64()),
 				zap.Error(err),
 			)
-			return fmt.Errorf("failed to update AVS stake table: %w", err)
+			continue
 		}
 		r, err := t.estimateGasPriceAndLimitAndSendTx(ctx, txOpts.From, tx, chain.RPCClient, "UpdateOperatorTable")
 		if err != nil {
-			t.logger.Error("Failed to ensure transaction evaled for AVS stake table",
+			t.logger.Error("Failed to ensure transaction evaled for AVS stake table, skipping chain",
 				zap.String("avsAddress", operatorSet.Avs.String()),
 				zap.Uint64("opsetIndex", opsetIndex),
 				zap.Uint64("chainId", chainId.Uint64()),
 				zap.Error(err),
 			)
-			return fmt.Errorf("failed to ensure transaction evaled: %w", err)
+			continue
 		}
 		t.logger.Info("Successfully transported AVS stake table",
 			zap.Any("opset", operatorSet),
