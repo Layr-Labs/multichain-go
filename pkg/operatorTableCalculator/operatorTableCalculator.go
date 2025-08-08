@@ -114,7 +114,15 @@ func (c *StakeTableCalculator) CalculateStakeTableRoot(
 			zap.String("opsetAvs", opset.Avs.String()),
 			zap.String("bytes", hexutil.Encode(tableBytes)),
 		)
-		opsetTableRoots[i] = tableBytes
+
+		encodedLeaf := distribution.EncodeOperatorTableLeaf(tableBytes)
+		opsetTableRoots[i] = encodedLeaf
+
+		c.logger.Sugar().Infow("Encoded operator table leaf for opset",
+			zap.Uint32("opsetId", opset.Id),
+			zap.String("opsetAvs", opset.Avs.String()),
+			zap.String("encodedLeaf", hexutil.Encode(encodedLeaf)),
+		)
 
 		err = dist.SetTableData(opset, tableBytes)
 		if err != nil {
