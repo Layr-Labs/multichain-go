@@ -6,7 +6,12 @@ package distribution
 import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 )
+
+// OPERATOR_TABLE_LEAF_SALT is the salt used for encoding operator table leaves
+// This matches the salt used in the EigenLayer contracts to prevent second preimage attacks
+const OPERATOR_TABLE_LEAF_SALT = 0x8e
 
 // OperatorSet represents a unique operator set in the EigenLayer ecosystem.
 // It consists of an ID and the address of the associated AVS (Actively Validated Service).
@@ -136,4 +141,23 @@ func (d *Distribution) GetOperatorSets() []OperatorSet {
 		sets = append(sets, opset)
 	}
 	return sets
+}
+
+// EncodeOperatorTableLeaf encodes an operator table leaf for merkleization.
+// This function creates a consistent leaf encoding format that matches the EigenLayer
+// contracts' LeafCalculatorMixin implementation to prevent second preimage attacks.
+//
+// The format follows: keccak256(abi.encodePacked(OPERATOR_TABLE_LEAF_SALT, operatorTableBytes))
+//
+// Parameters:
+//   - operatorTableBytes: The operator table data bytes
+//
+// Returns:
+//   - []byte: The 32-byte keccak256 hash of the salted leaf
+func EncodeOperatorTableLeaf(operatorTableBytes []byte) []byte {
+	saltByte := []byte{OPERATOR_TABLE_LEAF_SALT}
+	data := append(saltByte, operatorTableBytes...)
+
+	hash := crypto.Keccak256(data)
+	return hash
 }
