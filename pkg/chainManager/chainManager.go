@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"sync"
 )
 
 var (
@@ -44,8 +45,9 @@ type Chain struct {
 
 // ChainManager implements IChainManager and manages multiple blockchain connections.
 // It maintains a registry of active Chains indexed by their chain IDs.
+// This implementation is thread-safe using sync.Map for concurrent access.
 type ChainManager struct {
-	Chains map[uint64]*Chain
+	Chains sync.Map // map[uint64]*Chain
 }
 
 // NewChainManager creates a new ChainManager instance.
@@ -54,14 +56,13 @@ type ChainManager struct {
 // Returns:
 //   - *ChainManager: A new chain manager instance
 func NewChainManager() *ChainManager {
-	return &ChainManager{
-		Chains: make(map[uint64]*Chain),
-	}
+	return &ChainManager{}
 }
 
 // AddChain adds a new blockchain connection to the manager.
 // This method establishes a connection to the specified RPC URL and
 // stores the resulting chain connection for future use.
+// This method is thread-safe and can be called concurrently.
 //
 // Parameters:
 //   - cfg: The chain configuration containing chain ID and RPC URL
@@ -69,22 +70,23 @@ func NewChainManager() *ChainManager {
 // Returns:
 //   - error: An error if the chain already exists or connection fails
 func (cm *ChainManager) AddChain(cfg *ChainConfig) error {
-	if _, exists := cm.Chains[cfg.ChainID]; exists {
+	if _, exists := cm.Chains.Load(cfg.ChainID); exists {
 		return fmt.Errorf("chain with ID %d already exists", cfg.ChainID)
 	}
 	client, err := ethclient.Dial(cfg.RPCUrl)
 	if err != nil {
 		return fmt.Errorf("failed to connect to RPC URL %s: %w", cfg.RPCUrl, err)
 	}
-	cm.Chains[cfg.ChainID] = &Chain{
+	cm.Chains.Store(cfg.ChainID, &Chain{
 		config:    cfg,
 		RPCClient: client,
-	}
+	})
 	return nil
 }
 
 // GetChainForId retrieves a chain connection by its chain ID.
 // This method looks up an existing chain connection in the manager's registry.
+// This method is thread-safe and can be called concurrently.
 //
 // Parameters:
 //   - chainId: The chain ID to look up
@@ -93,9 +95,13 @@ func (cm *ChainManager) AddChain(cfg *ChainConfig) error {
 //   - *Chain: The chain connection if found
 //   - error: ErrChainNotFound if the chain ID is not registered
 func (cm *ChainManager) GetChainForId(chainId uint64) (*Chain, error) {
-	chain, exists := cm.Chains[chainId]
+	value, exists := cm.Chains.Load(chainId)
 	if !exists {
 		return nil, ErrChainNotFound
+	}
+	chain, ok := value.(*Chain)
+	if !ok {
+		return nil, fmt.Errorf("invalid chain type stored for ID %d", chainId)
 	}
 	return chain, nil
 }
