@@ -166,7 +166,7 @@ func (t *Transport) SignAndTransportGlobalTableRoot(
 			cert,
 			root,
 			referenceTimestamp,
-			uint32(referenceBlockHeight),
+			blockHeight,
 		)
 		t.logger.Sugar().Infow("Created transaction for global table root",
 			zap.Uint64("chainId", chainId.Uint64()),
