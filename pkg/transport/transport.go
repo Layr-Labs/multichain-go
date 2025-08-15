@@ -123,12 +123,17 @@ func (t *Transport) SignAndTransportGlobalTableRoot(
 			return fmt.Errorf("failed to get operator table updater transactor for chain %d: %w", chainId, err)
 		}
 
-		messageHash, err := updaterTransactor.GetGlobalTableUpdateMessageHash(&bind.CallOpts{}, root, referenceTimestamp, uint32(referenceBlockHeight))
+		blockHeight := uint32(referenceBlockHeight)
+		messageHash, err := updaterTransactor.GetGlobalTableUpdateMessageHash(&bind.CallOpts{}, root, referenceTimestamp, blockHeight)
 		if err != nil {
 			return fmt.Errorf("failed to get global table update message hash: %w", err)
 		}
+		signableDigest, err := updaterTransactor.GetGlobalTableUpdateSignableDigest(&bind.CallOpts{}, root, referenceTimestamp, blockHeight)
+		if err != nil {
+			return fmt.Errorf("failed to get global table update signable digest: %w", err)
+		}
 
-		sigG1, err := t.generateMessageHashSignature(messageHash)
+		sigG1, err := t.generateMessageHashSignature(signableDigest)
 		if err != nil {
 			return err
 		}
