@@ -3,7 +3,6 @@ package operatorTableCalculator
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -22,16 +21,14 @@ func setupTestCalculator(t *testing.T) (*StakeTableCalculator, *MockICrossChainR
 	mockRegistryCaller := NewMockICrossChainRegistryCaller(t)
 
 	logger, _ := zap.NewDevelopment()
-
-	calculator := &StakeTableCalculator{
-		config: &Config{
-			CrossChainRegistryAddress: common.HexToAddress("0x1234567890123456789012345678901234567890"),
-		},
-		ethClient: mockEthClient,
-		logger:    logger,
-		// Note: In a real scenario, this would be the actual binding, but for tests we'll work around it
-		crossChainRegistryCaller: nil,
+	config := &Config{
+		CrossChainRegistryAddress: common.HexToAddress("0x1234567890123456789012345678901234567890"),
 	}
+
+	// Use the constructor with the mock registry caller
+	calculator, err := NewStakeTableRootCalculatorWithRegistryCaller(config, mockEthClient, mockRegistryCaller, logger)
+	require.NoError(t, err)
+	require.NotNil(t, calculator)
 
 	return calculator, mockRegistryCaller, mockEthClient
 }
@@ -48,45 +45,8 @@ func createTestOperatorSets(count int) []ICrossChainRegistry.OperatorSet {
 	return operatorSets
 }
 
-// testFetchActiveGenerationReservationsPaginated is a test helper that replicates the pagination logic
-// This allows us to unit test the pagination logic independently
-func testFetchActiveGenerationReservationsPaginated(mockRegistryCaller *MockICrossChainRegistryCaller, callOpts *bind.CallOpts) ([]ICrossChainRegistry.OperatorSet, error) {
-	// Get the total count of generation reservations
-	totalCount, err := mockRegistryCaller.GetActiveGenerationReservationCount(callOpts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch generation reservation count: %w", err)
-	}
-
-	if totalCount.Cmp(big.NewInt(0)) == 0 {
-		return []ICrossChainRegistry.OperatorSet{}, nil
-	}
-
-	const pageSize = 50
-	var allReservations []ICrossChainRegistry.OperatorSet
-
-	for startIndex := uint64(0); startIndex < totalCount.Uint64(); startIndex += pageSize {
-		endIndex := startIndex + pageSize
-		if endIndex > totalCount.Uint64() {
-			endIndex = totalCount.Uint64()
-		}
-
-		pageReservations, err := mockRegistryCaller.GetActiveGenerationReservationsByRange(
-			callOpts,
-			new(big.Int).SetUint64(startIndex),
-			new(big.Int).SetUint64(endIndex),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch active generation reservations for range [%d, %d): %w", startIndex, endIndex, err)
-		}
-
-		allReservations = append(allReservations, pageReservations...)
-	}
-
-	return allReservations, nil
-}
-
 func TestStakeTableCalculator_fetchActiveGenerationReservationsPaginated_EmptyResult(t *testing.T) {
-	_, mockRegistryCaller, _ := setupTestCalculator(t)
+	calculator, mockRegistryCaller, _ := setupTestCalculator(t)
 
 	callOpts := &bind.CallOpts{
 		Context:     context.Background(),
@@ -97,14 +57,14 @@ func TestStakeTableCalculator_fetchActiveGenerationReservationsPaginated_EmptyRe
 	mockRegistryCaller.On("GetActiveGenerationReservationCount", callOpts).
 		Return(big.NewInt(0), nil)
 
-	result, err := testFetchActiveGenerationReservationsPaginated(mockRegistryCaller, callOpts)
+	result, err := calculator.fetchActiveGenerationReservationsPaginated(callOpts)
 
 	assert.NoError(t, err)
 	assert.Empty(t, result)
 }
 
 func TestStakeTableCalculator_fetchActiveGenerationReservationsPaginated_SinglePage(t *testing.T) {
-	_, mockRegistryCaller, _ := setupTestCalculator(t)
+	calculator, mockRegistryCaller, _ := setupTestCalculator(t)
 
 	callOpts := &bind.CallOpts{
 		Context:     context.Background(),
@@ -121,14 +81,14 @@ func TestStakeTableCalculator_fetchActiveGenerationReservationsPaginated_SingleP
 	mockRegistryCaller.On("GetActiveGenerationReservationsByRange", callOpts, big.NewInt(0), big.NewInt(25)).
 		Return(expectedOperatorSets, nil)
 
-	result, err := testFetchActiveGenerationReservationsPaginated(mockRegistryCaller, callOpts)
+	result, err := calculator.fetchActiveGenerationReservationsPaginated(callOpts)
 
 	assert.NoError(t, err)
 	assert.Equal(t, expectedOperatorSets, result)
 }
 
 func TestStakeTableCalculator_fetchActiveGenerationReservationsPaginated_MultiplePages(t *testing.T) {
-	_, mockRegistryCaller, _ := setupTestCalculator(t)
+	calculator, mockRegistryCaller, _ := setupTestCalculator(t)
 
 	callOpts := &bind.CallOpts{
 		Context:     context.Background(),
@@ -152,7 +112,7 @@ func TestStakeTableCalculator_fetchActiveGenerationReservationsPaginated_Multipl
 	mockRegistryCaller.On("GetActiveGenerationReservationsByRange", callOpts, big.NewInt(100), big.NewInt(125)).
 		Return(page3Data, nil)
 
-	result, err := testFetchActiveGenerationReservationsPaginated(mockRegistryCaller, callOpts)
+	result, err := calculator.fetchActiveGenerationReservationsPaginated(callOpts)
 
 	assert.NoError(t, err)
 	assert.Len(t, result, 125)
@@ -164,7 +124,7 @@ func TestStakeTableCalculator_fetchActiveGenerationReservationsPaginated_Multipl
 }
 
 func TestStakeTableCalculator_fetchActiveGenerationReservationsPaginated_ErrorInCount(t *testing.T) {
-	_, mockRegistryCaller, _ := setupTestCalculator(t)
+	calculator, mockRegistryCaller, _ := setupTestCalculator(t)
 
 	callOpts := &bind.CallOpts{
 		Context:     context.Background(),
@@ -177,7 +137,7 @@ func TestStakeTableCalculator_fetchActiveGenerationReservationsPaginated_ErrorIn
 	mockRegistryCaller.On("GetActiveGenerationReservationCount", callOpts).
 		Return((*big.Int)(nil), expectedError)
 
-	result, err := testFetchActiveGenerationReservationsPaginated(mockRegistryCaller, callOpts)
+	result, err := calculator.fetchActiveGenerationReservationsPaginated(callOpts)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to fetch generation reservation count")
@@ -186,7 +146,7 @@ func TestStakeTableCalculator_fetchActiveGenerationReservationsPaginated_ErrorIn
 }
 
 func TestStakeTableCalculator_fetchActiveGenerationReservationsPaginated_ErrorInRange(t *testing.T) {
-	_, mockRegistryCaller, _ := setupTestCalculator(t)
+	calculator, mockRegistryCaller, _ := setupTestCalculator(t)
 
 	callOpts := &bind.CallOpts{
 		Context:     context.Background(),
@@ -203,7 +163,7 @@ func TestStakeTableCalculator_fetchActiveGenerationReservationsPaginated_ErrorIn
 	mockRegistryCaller.On("GetActiveGenerationReservationsByRange", callOpts, big.NewInt(0), big.NewInt(25)).
 		Return([]ICrossChainRegistry.OperatorSet(nil), expectedError)
 
-	result, err := testFetchActiveGenerationReservationsPaginated(mockRegistryCaller, callOpts)
+	result, err := calculator.fetchActiveGenerationReservationsPaginated(callOpts)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to fetch active generation reservations for range [0, 25)")
@@ -246,7 +206,7 @@ func TestStakeTableCalculator_PaginationEdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, mockRegistryCaller, _ := setupTestCalculator(t)
+			calculator, mockRegistryCaller, _ := setupTestCalculator(t)
 
 			callOpts := &bind.CallOpts{
 				Context:     context.Background(),
@@ -275,7 +235,7 @@ func TestStakeTableCalculator_PaginationEdgeCases(t *testing.T) {
 				remainingCount -= pageSize
 			}
 
-			result, err := testFetchActiveGenerationReservationsPaginated(mockRegistryCaller, callOpts)
+			result, err := calculator.fetchActiveGenerationReservationsPaginated(callOpts)
 
 			assert.NoError(t, err)
 			assert.Len(t, result, int(tt.totalCount))
@@ -299,6 +259,42 @@ func TestNewStakeTableRootCalculator_Success(t *testing.T) {
 	assert.Equal(t, mockEthClient, calculator.ethClient)
 	assert.Equal(t, logger, calculator.logger)
 	assert.NotNil(t, calculator.crossChainRegistryCaller)
+}
+
+func TestNewStakeTableRootCalculatorWithRegistryCaller_Success(t *testing.T) {
+	mockEthClient := chainManager.NewMockEthClientInterface(t)
+	mockRegistryCaller := NewMockICrossChainRegistryCaller(t)
+	logger, _ := zap.NewDevelopment()
+
+	config := &Config{
+		CrossChainRegistryAddress: common.HexToAddress("0x1234567890123456789012345678901234567890"),
+	}
+
+	// Test with mock registry caller
+	calculator, err := NewStakeTableRootCalculatorWithRegistryCaller(config, mockEthClient, mockRegistryCaller, logger)
+
+	require.NoError(t, err)
+	assert.NotNil(t, calculator)
+	assert.Equal(t, config, calculator.config)
+	assert.Equal(t, mockEthClient, calculator.ethClient)
+	assert.Equal(t, logger, calculator.logger)
+	assert.Equal(t, mockRegistryCaller, calculator.crossChainRegistryCaller)
+}
+
+func TestNewStakeTableRootCalculatorWithRegistryCaller_NilConfig(t *testing.T) {
+	mockEthClient := chainManager.NewMockEthClientInterface(t)
+	mockRegistryCaller := NewMockICrossChainRegistryCaller(t)
+	logger, _ := zap.NewDevelopment()
+
+	// Test constructor behavior with nil config
+	calculator, err := NewStakeTableRootCalculatorWithRegistryCaller(nil, mockEthClient, mockRegistryCaller, logger)
+
+	require.NoError(t, err)
+	assert.NotNil(t, calculator)
+	assert.Nil(t, calculator.config)
+	assert.Equal(t, mockEthClient, calculator.ethClient)
+	assert.Equal(t, logger, calculator.logger)
+	assert.Equal(t, mockRegistryCaller, calculator.crossChainRegistryCaller)
 }
 
 func TestStakeTableCalculatorConfig_Validation(t *testing.T) {

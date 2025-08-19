@@ -22,6 +22,13 @@ import (
 	"github.com/wealdtech/go-merkletree/v2/keccak256"
 )
 
+// CrossChainRegistryCallerInterface defines the interface for interacting with the CrossChainRegistry contract
+type CrossChainRegistryCallerInterface interface {
+	GetActiveGenerationReservationCount(opts *bind.CallOpts) (*big.Int, error)
+	GetActiveGenerationReservationsByRange(opts *bind.CallOpts, startIndex *big.Int, endIndex *big.Int) ([]ICrossChainRegistry.OperatorSet, error)
+	CalculateOperatorTableBytes(opts *bind.CallOpts, operatorSet ICrossChainRegistry.OperatorSet) ([]byte, error)
+}
+
 // Config holds the configuration for the StakeTableCalculator.
 type Config struct {
 	CrossChainRegistryAddress common.Address
@@ -32,7 +39,7 @@ type StakeTableCalculator struct {
 	config                   *Config
 	ethClient                chainManager.EthClientInterface
 	logger                   *zap.Logger
-	crossChainRegistryCaller *ICrossChainRegistry.ICrossChainRegistryCaller
+	crossChainRegistryCaller CrossChainRegistryCallerInterface
 }
 
 // NewStakeTableRootCalculator creates a new instance of StakeTableCalculator.
@@ -42,6 +49,16 @@ func NewStakeTableRootCalculator(cfg *Config, ec chainManager.EthClientInterface
 		return nil, fmt.Errorf("failed to bind NewICrossChainRegistryCaller: %w", err)
 	}
 
+	return &StakeTableCalculator{
+		config:                   cfg,
+		ethClient:                ec,
+		logger:                   l,
+		crossChainRegistryCaller: registryCaller,
+	}, nil
+}
+
+// NewStakeTableRootCalculatorWithRegistryCaller creates a new instance of StakeTableCalculator with a pre-bound registry caller.
+func NewStakeTableRootCalculatorWithRegistryCaller(cfg *Config, ec chainManager.EthClientInterface, registryCaller CrossChainRegistryCallerInterface, l *zap.Logger) (*StakeTableCalculator, error) {
 	return &StakeTableCalculator{
 		config:                   cfg,
 		ethClient:                ec,
