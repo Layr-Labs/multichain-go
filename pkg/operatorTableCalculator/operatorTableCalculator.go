@@ -7,12 +7,13 @@ package operatorTableCalculator
 import (
 	"context"
 	"fmt"
+	"math/big"
+
 	"github.com/Layr-Labs/multichain-go/pkg/chainManager"
 	"github.com/Layr-Labs/multichain-go/pkg/distribution"
 	"github.com/Layr-Labs/multichain-go/pkg/util"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"go.uber.org/zap"
-	"math/big"
 
 	"github.com/Layr-Labs/eigenlayer-contracts/pkg/bindings/ICrossChainRegistry"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -20,6 +21,13 @@ import (
 	merkletree "github.com/wealdtech/go-merkletree/v2"
 	"github.com/wealdtech/go-merkletree/v2/keccak256"
 )
+
+// CrossChainRegistryCallerInterface defines the interface for interacting with the CrossChainRegistry contract
+type CrossChainRegistryCallerInterface interface {
+	GetActiveGenerationReservationCount(opts *bind.CallOpts) (*big.Int, error)
+	GetActiveGenerationReservationsByRange(opts *bind.CallOpts, startIndex *big.Int, endIndex *big.Int) ([]ICrossChainRegistry.OperatorSet, error)
+	CalculateOperatorTableBytes(opts *bind.CallOpts, operatorSet ICrossChainRegistry.OperatorSet) ([]byte, error)
+}
 
 // Config holds the configuration for the StakeTableCalculator.
 type Config struct {
@@ -31,7 +39,7 @@ type StakeTableCalculator struct {
 	config                   *Config
 	ethClient                chainManager.EthClientInterface
 	logger                   *zap.Logger
-	crossChainRegistryCaller *ICrossChainRegistry.ICrossChainRegistryCaller
+	crossChainRegistryCaller CrossChainRegistryCallerInterface
 }
 
 // NewStakeTableRootCalculator creates a new instance of StakeTableCalculator.
@@ -41,6 +49,16 @@ func NewStakeTableRootCalculator(cfg *Config, ec chainManager.EthClientInterface
 		return nil, fmt.Errorf("failed to bind NewICrossChainRegistryCaller: %w", err)
 	}
 
+	return &StakeTableCalculator{
+		config:                   cfg,
+		ethClient:                ec,
+		logger:                   l,
+		crossChainRegistryCaller: registryCaller,
+	}, nil
+}
+
+// NewStakeTableRootCalculatorWithRegistryCaller creates a new instance of StakeTableCalculator with a pre-bound registry caller.
+func NewStakeTableRootCalculatorWithRegistryCaller(cfg *Config, ec chainManager.EthClientInterface, registryCaller CrossChainRegistryCallerInterface, l *zap.Logger) (*StakeTableCalculator, error) {
 	return &StakeTableCalculator{
 		config:                   cfg,
 		ethClient:                ec,
@@ -61,10 +79,12 @@ func (c *StakeTableCalculator) CalculateStakeTableRoot(
 ) {
 	var zeroRoot [32]byte // Return in case of error or no data
 
-	opsetsWithCalculators, err := c.crossChainRegistryCaller.GetActiveGenerationReservations(&bind.CallOpts{
+	callOpts := &bind.CallOpts{
 		Context:     ctx,
 		BlockNumber: new(big.Int).SetUint64(referenceBlockNumber),
-	})
+	}
+
+	opsetsWithCalculators, err := c.fetchActiveGenerationReservationsPaginated(callOpts)
 	if err != nil {
 		return zeroRoot, nil, nil, fmt.Errorf("failed to fetch active generation reservations: %w", err)
 	}
@@ -145,4 +165,42 @@ func (c *StakeTableCalculator) CalculateStakeTableRoot(
 		zap.Uint64("referenceBlockNumber", referenceBlockNumber),
 	)
 	return [32]byte(merkleRoot), tree, dist, nil
+}
+
+// fetchActiveGenerationReservationsPaginated fetches active generation reservations using pagination.
+func (c *StakeTableCalculator) fetchActiveGenerationReservationsPaginated(
+	callOpts *bind.CallOpts,
+) ([]ICrossChainRegistry.OperatorSet, error) {
+	// Get the total count of generation reservations
+	totalCount, err := c.crossChainRegistryCaller.GetActiveGenerationReservationCount(callOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch generation reservation count: %w", err)
+	}
+
+	if totalCount.Cmp(big.NewInt(0)) == 0 {
+		return []ICrossChainRegistry.OperatorSet{}, nil
+	}
+
+	const pageSize = 50
+	var allReservations []ICrossChainRegistry.OperatorSet
+
+	for startIndex := uint64(0); startIndex < totalCount.Uint64(); startIndex += pageSize {
+		endIndex := startIndex + pageSize
+		if endIndex > totalCount.Uint64() {
+			endIndex = totalCount.Uint64()
+		}
+
+		pageReservations, err := c.crossChainRegistryCaller.GetActiveGenerationReservationsByRange(
+			callOpts,
+			new(big.Int).SetUint64(startIndex),
+			new(big.Int).SetUint64(endIndex),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch active generation reservations for range [%d, %d): %w", startIndex, endIndex, err)
+		}
+
+		allReservations = append(allReservations, pageReservations...)
+	}
+
+	return allReservations, nil
 }
