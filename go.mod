@@ -4,7 +4,7 @@ go 1.23.6
 
 require (
 	github.com/Layr-Labs/crypto-libs v0.0.3
-	github.com/Layr-Labs/eigenlayer-contracts v1.8.0-testnet-final
+	github.com/Layr-Labs/eigenlayer-contracts v1.8.2-0.20251113224335-7a6f055a61dd
 	github.com/aws/aws-sdk-go v1.55.7
 	github.com/ethereum/go-ethereum v1.15.11
 	github.com/stretchr/testify v1.10.0
