@@ -101,18 +101,20 @@ func (c *StakeTableCalculator) CalculateStakeTableRoot(
 		return zeroRoot, nil, dist, nil
 	}
 
-	distributionOpsets := util.Map(opsetsWithCalculators, func(opset ICrossChainRegistry.OperatorSet, i uint64) distribution.OperatorSet {
+	allOpsets := util.Map(opsetsWithCalculators, func(opset ICrossChainRegistry.OperatorSet, i uint64) distribution.OperatorSet {
 		return distribution.OperatorSet{
 			Id:  opset.Id,
 			Avs: opset.Avs,
 		}
 	})
 
-	dist.SetOperatorSets(distributionOpsets)
+	// Calculate table bytes for each opset, skipping any whose calculator reverts.
+	// A single malicious/broken AVS calculator must not block all other opsets.
+	var successfulOpsets []distribution.OperatorSet
+	var opsetTableRoots [][]byte
+	var opsetTableBytes [][]byte
 
-	opsetTableRoots := make([][]byte, len(opsetsWithCalculators))
-	for i, opset := range distributionOpsets {
-		// get the table bytes for the operator set
+	for i, opset := range allOpsets {
 		c.logger.Sugar().Infow("Calculating operator table bytes for opset",
 			zap.Uint32("opsetId", opset.Id),
 			zap.String("opsetAvs", opset.Avs.String()),
@@ -123,9 +125,10 @@ func (c *StakeTableCalculator) CalculateStakeTableRoot(
 			BlockNumber: new(big.Int).SetUint64(referenceBlockNumber),
 		}, opsetsWithCalculators[i])
 		if err != nil {
-			c.logger.Sugar().Errorw("Failed to calculate operator table bytes",
+			c.logger.Sugar().Errorw("Skipping opset: CalculateOperatorTableBytes reverted",
 				zap.Uint32("opsetId", opset.Id),
 				zap.String("opsetAvs", opset.Avs.String()),
+				zap.Error(err),
 			)
 			continue
 		}
@@ -136,15 +139,33 @@ func (c *StakeTableCalculator) CalculateStakeTableRoot(
 		)
 
 		encodedLeaf := distribution.EncodeOperatorTableLeaf(tableBytes)
-		opsetTableRoots[i] = encodedLeaf
-
 		c.logger.Sugar().Infow("Encoded operator table leaf for opset",
 			zap.Uint32("opsetId", opset.Id),
 			zap.String("opsetAvs", opset.Avs.String()),
 			zap.String("encodedLeaf", hexutil.Encode(encodedLeaf)),
 		)
 
-		err = dist.SetTableData(opset, tableBytes)
+		successfulOpsets = append(successfulOpsets, opset)
+		opsetTableRoots = append(opsetTableRoots, encodedLeaf)
+		opsetTableBytes = append(opsetTableBytes, tableBytes)
+	}
+
+	if len(successfulOpsets) == 0 {
+		c.logger.Sugar().Warnw("All operator set calculators failed, global table root will be zero.")
+		return zeroRoot, nil, dist, nil
+	}
+
+	if len(successfulOpsets) < len(allOpsets) {
+		c.logger.Sugar().Warnw("Some operator set calculators failed, proceeding with successful ones only",
+			zap.Int("total", len(allOpsets)),
+			zap.Int("successful", len(successfulOpsets)),
+			zap.Int("failed", len(allOpsets)-len(successfulOpsets)),
+		)
+	}
+
+	dist.SetOperatorSets(successfulOpsets)
+	for i, opset := range successfulOpsets {
+		err = dist.SetTableData(opset, opsetTableBytes[i])
 		if err != nil {
 			return zeroRoot, nil, nil, fmt.Errorf("failed to set table data for opset %d: %w", opset, err)
 		}
