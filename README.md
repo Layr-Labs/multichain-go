@@ -322,3 +322,6 @@ Please ensure your code passes all tests and linting before submitting a PR:
 ```bash
 make test lint fmtcheck
 ```
+
+#### Disclaimer
+🚧 This is under development and has not been fully audited and should be used only for testing purposes and not in production 🚧
