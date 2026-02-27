@@ -8,6 +8,7 @@ import (
 
 	"github.com/Layr-Labs/eigenlayer-contracts/pkg/bindings/ICrossChainRegistry"
 	"github.com/Layr-Labs/multichain-go/pkg/chainManager"
+	"github.com/Layr-Labs/multichain-go/pkg/distribution"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -295,6 +296,114 @@ func TestNewStakeTableRootCalculatorWithRegistryCaller_NilConfig(t *testing.T) {
 	assert.Equal(t, mockEthClient, calculator.ethClient)
 	assert.Equal(t, logger, calculator.logger)
 	assert.Equal(t, mockRegistryCaller, calculator.crossChainRegistryCaller)
+}
+
+// TestMaliciousAVS_RevertingCalculator_SkippedWithoutBlockingOthers demonstrates
+// that a malicious AVS whose CalculateOperatorTableBytes reverts is skipped,
+// while all legitimate operator sets are still included in the stake table.
+func TestMaliciousAVS_RevertingCalculator_SkippedWithoutBlockingOthers(t *testing.T) {
+	calculator, mockRegistryCaller, _ := setupTestCalculator(t)
+
+	blockNumber := uint64(12345)
+	callOpts := &bind.CallOpts{
+		Context:     context.Background(),
+		BlockNumber: new(big.Int).SetUint64(blockNumber),
+	}
+
+	// 3 legitimate AVSes + 1 malicious AVS
+	legitimateAvs1 := common.HexToAddress("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+	legitimateAvs2 := common.HexToAddress("0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+	maliciousAvs := common.HexToAddress("0xdeaddeaddeaddeaddeaddeaddeaddeaddeaddead")
+	legitimateAvs3 := common.HexToAddress("0xcccccccccccccccccccccccccccccccccccccccc")
+
+	allOpsets := []ICrossChainRegistry.OperatorSet{
+		{Avs: legitimateAvs1, Id: 1},
+		{Avs: legitimateAvs2, Id: 2},
+		{Avs: maliciousAvs, Id: 3}, // malicious — calculator reverts
+		{Avs: legitimateAvs3, Id: 4},
+	}
+
+	// Mock pagination: return all 4 opsets
+	mockRegistryCaller.On("GetActiveGenerationReservationCount", callOpts).
+		Return(big.NewInt(4), nil)
+	mockRegistryCaller.On("GetActiveGenerationReservationsByRange", callOpts, big.NewInt(0), big.NewInt(4)).
+		Return(allOpsets, nil)
+
+	// Legitimate AVSes return valid table bytes
+	mockRegistryCaller.On("CalculateOperatorTableBytes", callOpts, allOpsets[0]).
+		Return([]byte{0x01, 0x02, 0x03}, nil)
+	mockRegistryCaller.On("CalculateOperatorTableBytes", callOpts, allOpsets[1]).
+		Return([]byte{0x04, 0x05, 0x06}, nil)
+	mockRegistryCaller.On("CalculateOperatorTableBytes", callOpts, allOpsets[3]).
+		Return([]byte{0x0a, 0x0b, 0x0c}, nil)
+
+	// Malicious AVS: calculator reverts
+	mockRegistryCaller.On("CalculateOperatorTableBytes", callOpts, allOpsets[2]).
+		Return([]byte(nil), errors.New("execution reverted"))
+
+	root, tree, dist, err := calculator.CalculateStakeTableRoot(context.Background(), blockNumber)
+
+	// Calculation succeeds despite the malicious AVS
+	require.NoError(t, err)
+	assert.NotEqual(t, [32]byte{}, root)
+	assert.NotNil(t, tree)
+	assert.NotNil(t, dist)
+
+	// Only 3 legitimate opsets are in the distribution — malicious one is excluded
+	opsets := dist.GetOrderedOperatorSets()
+	assert.Len(t, opsets, 3)
+
+	// Verify the 3 legitimate opsets are present with correct indices
+	assert.Equal(t, distribution.OperatorSet{Id: 1, Avs: legitimateAvs1}, opsets[0])
+	assert.Equal(t, distribution.OperatorSet{Id: 2, Avs: legitimateAvs2}, opsets[1])
+	assert.Equal(t, distribution.OperatorSet{Id: 4, Avs: legitimateAvs3}, opsets[2])
+
+	// Verify table data exists for each legitimate opset
+	for _, opset := range opsets {
+		_, found := dist.GetTableData(opset)
+		assert.True(t, found, "table data should exist for opset %v", opset)
+	}
+
+	// Verify the malicious AVS is NOT in the distribution
+	_, found := dist.GetTableIndex(distribution.OperatorSet{Id: 3, Avs: maliciousAvs})
+	assert.False(t, found, "malicious AVS should not be in distribution")
+}
+
+// TestAllCalculatorsFail_ReturnsZeroRoot verifies that if every opset's
+// calculator reverts, the result is a zero root (not an error).
+func TestAllCalculatorsFail_ReturnsZeroRoot(t *testing.T) {
+	calculator, mockRegistryCaller, _ := setupTestCalculator(t)
+
+	blockNumber := uint64(12345)
+	callOpts := &bind.CallOpts{
+		Context:     context.Background(),
+		BlockNumber: new(big.Int).SetUint64(blockNumber),
+	}
+
+	allOpsets := []ICrossChainRegistry.OperatorSet{
+		{Avs: common.HexToAddress("0xdeaddeaddeaddeaddeaddeaddeaddeaddeaddead"), Id: 1},
+		{Avs: common.HexToAddress("0xbaadbaadbaadbaadbaadbaadbaadbaadbaadbAAD"), Id: 2},
+	}
+
+	mockRegistryCaller.On("GetActiveGenerationReservationCount", callOpts).
+		Return(big.NewInt(2), nil)
+	mockRegistryCaller.On("GetActiveGenerationReservationsByRange", callOpts, big.NewInt(0), big.NewInt(2)).
+		Return(allOpsets, nil)
+
+	// Both calculators revert
+	mockRegistryCaller.On("CalculateOperatorTableBytes", callOpts, allOpsets[0]).
+		Return([]byte(nil), errors.New("execution reverted"))
+	mockRegistryCaller.On("CalculateOperatorTableBytes", callOpts, allOpsets[1]).
+		Return([]byte(nil), errors.New("execution reverted"))
+
+	root, tree, dist, err := calculator.CalculateStakeTableRoot(context.Background(), blockNumber)
+
+	// Should succeed with zero root, not error
+	require.NoError(t, err)
+	assert.Equal(t, [32]byte{}, root)
+	assert.Nil(t, tree)
+	assert.NotNil(t, dist)
+	assert.Empty(t, dist.GetOperatorSets())
 }
 
 func TestStakeTableCalculatorConfig_Validation(t *testing.T) {
