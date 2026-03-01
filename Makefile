@@ -9,8 +9,8 @@ GO_FLAGS=
 .PHONY: deps
 deps: deps/go
 	git submodule update --init --recursive
-	$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61.0
-	$(GO) install github.com/vektra/mockery/v2@v2.42.3
+	$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
+	$(GO) install github.com/vektra/mockery/v2@v2.53.3
 
 .PHONY: deps/go
 deps/go:
