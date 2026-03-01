@@ -17,9 +17,9 @@ import (
 )
 
 // Helper function to create a test StakeTableCalculator with mocked dependencies
-func setupTestCalculator(t *testing.T) (*StakeTableCalculator, *MockICrossChainRegistryCaller, *chainManager.MockEthClientInterface) {
+func setupTestCalculator(t *testing.T) (*StakeTableCalculator, *MockCrossChainRegistryCallerInterface, *chainManager.MockEthClientInterface) {
 	mockEthClient := chainManager.NewMockEthClientInterface(t)
-	mockRegistryCaller := NewMockICrossChainRegistryCaller(t)
+	mockRegistryCaller := NewMockCrossChainRegistryCallerInterface(t)
 
 	logger, _ := zap.NewDevelopment()
 	config := &Config{
@@ -264,7 +264,7 @@ func TestNewStakeTableRootCalculator_Success(t *testing.T) {
 
 func TestNewStakeTableRootCalculatorWithRegistryCaller_Success(t *testing.T) {
 	mockEthClient := chainManager.NewMockEthClientInterface(t)
-	mockRegistryCaller := NewMockICrossChainRegistryCaller(t)
+	mockRegistryCaller := NewMockCrossChainRegistryCallerInterface(t)
 	logger, _ := zap.NewDevelopment()
 
 	config := &Config{
@@ -284,7 +284,7 @@ func TestNewStakeTableRootCalculatorWithRegistryCaller_Success(t *testing.T) {
 
 func TestNewStakeTableRootCalculatorWithRegistryCaller_NilConfig(t *testing.T) {
 	mockEthClient := chainManager.NewMockEthClientInterface(t)
-	mockRegistryCaller := NewMockICrossChainRegistryCaller(t)
+	mockRegistryCaller := NewMockCrossChainRegistryCallerInterface(t)
 	logger, _ := zap.NewDevelopment()
 
 	// Test constructor behavior with nil config
